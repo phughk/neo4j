@@ -35,12 +35,14 @@ public class CatchUpResponseAdaptor<T> implements CatchUpResponseCallback<T>
     @Override
     public void onFileHeader( CompletableFuture<T> signal, FileHeader response )
     {
+        System.out.printf( "%s onFileHeader\n", this.getClass().getName() );
         signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
     }
 
     @Override
     public boolean onFileContent( CompletableFuture<T> signal, FileChunk response ) throws IOException
     {
+        System.out.printf( "%s onFileContent\n", this.getClass().getName() );
         signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
         return false;
     }
@@ -48,30 +50,35 @@ public class CatchUpResponseAdaptor<T> implements CatchUpResponseCallback<T>
     @Override
     public void onFileStreamingComplete( CompletableFuture<T> signal, StoreCopyFinishedResponse response )
     {
+        System.out.printf( "%s onFileStreamingComplete", this.getClass().getName() );
         signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
     }
 
     @Override
     public void onTxPullResponse( CompletableFuture<T> signal, TxPullResponse response )
     {
+        System.out.printf( "%s onTxPullResponse", this.getClass().getName() );
         signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
     }
 
     @Override
     public void onTxStreamFinishedResponse( CompletableFuture<T> signal, TxStreamFinishedResponse response )
     {
+        System.out.printf( "%s onTxStreamFinishedResponse", this.getClass().getName() );
         signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
     }
 
     @Override
     public void onGetStoreIdResponse( CompletableFuture<T> signal, GetStoreIdResponse response )
     {
+        System.out.printf( "%s onGetStoreIdResponse", this.getClass().getName() );
         signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
     }
 
     @Override
     public void onCoreSnapshot( CompletableFuture<T> signal, CoreSnapshot response )
     {
+        System.out.printf( "%s onCoreSnapshot", this.getClass().getName() );
         signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
     }
 }

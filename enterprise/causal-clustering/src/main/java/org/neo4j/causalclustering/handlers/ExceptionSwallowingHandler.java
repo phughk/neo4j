@@ -27,6 +27,8 @@ public class ExceptionSwallowingHandler extends ChannelHandlerAdapter
     @Override
     public void exceptionCaught( ChannelHandlerContext ctx, Throwable cause ) throws Exception
     {
+        System.out.println("Received call on final processor (ExceptionSwallowingHandler). Exception caught: " + cause);
+        cause.printStackTrace(System.err);
         // yummy
     }
 }

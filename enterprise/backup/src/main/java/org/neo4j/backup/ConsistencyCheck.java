@@ -30,7 +30,7 @@ import org.neo4j.io.pagecache.PageCache;
 import org.neo4j.kernel.configuration.Config;
 import org.neo4j.logging.LogProvider;
 
-interface ConsistencyCheck
+public interface ConsistencyCheck
 {
     ConsistencyCheck NONE =
             new ConsistencyCheck()

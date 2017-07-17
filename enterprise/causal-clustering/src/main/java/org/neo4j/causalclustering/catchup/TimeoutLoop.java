@@ -42,6 +42,7 @@ class TimeoutLoop
         {
             try
             {
+                System.out.println( "remainingTimeoutMillis = " + remainingTimeoutMillis );
                 return future.get( remainingTimeoutMillis, TimeUnit.MILLISECONDS );
             }
             catch ( InterruptedException e )
@@ -63,6 +64,7 @@ class TimeoutLoop
                 else
                 {
                     long millisSinceLastResponse = millisSinceLastResponseSupplier.get().get();
+                    System.out.println( "millisSinceLastResponse = " + millisSinceLastResponse );
                     if ( millisSinceLastResponse < inactivityTimeoutMillis )
                     {
                         remainingTimeoutMillis = inactivityTimeoutMillis - millisSinceLastResponse;

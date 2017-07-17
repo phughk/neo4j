@@ -45,6 +45,7 @@
     <module>deferred-locks</module>
     <module>ha</module>
     <module>procedure-compiler-enterprise-tests</module>
+    <module>nextgen-backup</module>
   </modules>
 
   <profiles>
