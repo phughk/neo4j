@@ -48,30 +48,11 @@ public class HughTxPullClient
     }
 
     public TxPullRequestResult pullTransactions( AdvertisedSocketAddress from, StoreId storeId, long previousTxId,
-            TxPullResponseListener txPullResponseListener )
-            throws CatchUpClientException
+            TxPullResponseListener txPullResponseListener ) throws CatchUpClientException
     {
         pullRequestMonitor.txPullRequest( previousTxId );
         return catchUpClient.makeBlockingRequest( from, new TxPullRequest( previousTxId, storeId ),
-                new CatchUpResponseAdaptor<TxPullRequestResult>()
-                {
-                    private long lastTxIdReceived = previousTxId;
-
-                    @Override
-                    public void onTxPullResponse( CompletableFuture<TxPullRequestResult> signal,
-                            TxPullResponse response )
-                    {
-                        this.lastTxIdReceived = response.tx().getCommitEntry().getTxId();
-                        txPullResponseListener.onTxReceived( response );
-                    }
-
-                    @Override
-                    public void onTxStreamFinishedResponse( CompletableFuture<TxPullRequestResult> signal,
-                            TxStreamFinishedResponse response )
-                    {
-                        signal.complete( new TxPullRequestResult( response.status(), lastTxIdReceived ) );
-                    }
-                } );
+                new TxPullResponseAdaptor( txPullResponseListener, previousTxId ) );
     }
 }
 

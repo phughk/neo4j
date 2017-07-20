@@ -19,21 +19,11 @@
  */
 package org.neo4j.nextgenbackup;
 
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-
 import org.neo4j.causalclustering.catchup.CatchUpClientException;
-import org.neo4j.causalclustering.catchup.CatchUpResponseAdaptor;
 import org.neo4j.causalclustering.catchup.HughCatchUpClient;
-import org.neo4j.causalclustering.catchup.storecopy.FileChunk;
-import org.neo4j.causalclustering.catchup.storecopy.FileHeader;
 import org.neo4j.causalclustering.catchup.storecopy.GetStoreIdRequest;
-import org.neo4j.causalclustering.catchup.storecopy.GetStoreIdResponse;
 import org.neo4j.causalclustering.catchup.storecopy.GetStoreRequest;
-import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFailedException;
-import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFinishedResponse;
 import org.neo4j.causalclustering.catchup.storecopy.StoreFileStreams;
-import org.neo4j.causalclustering.catchup.storecopy.StoreIdDownloadFailedException;
 import org.neo4j.causalclustering.identity.StoreId;
 import org.neo4j.helpers.AdvertisedSocketAddress;
 import org.neo4j.logging.Log;
@@ -54,35 +44,8 @@ public class HughStoreCopyClient
     {
         try
         {
-            return catchUpClient.makeBlockingRequest( from, new GetStoreRequest( expectedStoreId ), new CatchUpResponseAdaptor<Long>()
-            {
-                private String destination;
-                private int requiredAlignment;
-
-                @Override
-                public void onFileHeader( CompletableFuture<Long> requestOutcomeSignal, FileHeader fileHeader )
-                {
-                    System.out.println( "HughStoreCopyClient copyStoreFiles onFileHeader" );
-                    this.destination = fileHeader.fileName();
-                    this.requiredAlignment = fileHeader.requiredAlignment();
-                }
-
-                @Override
-                public boolean onFileContent( CompletableFuture<Long> signal, FileChunk fileChunk ) throws IOException
-                {
-                    System.out.println( "HughStoreCopyClient copyStoreFiles onFileContent" );
-                    storeFileStreams.write( destination, requiredAlignment, fileChunk.bytes() );
-                    return fileChunk.isLast();
-                }
-
-                @Override
-                public void onFileStreamingComplete( CompletableFuture<Long> signal, StoreCopyFinishedResponse response )
-                {
-                    System.out.println( "HughStoreCopyClient copyStoreFiles onFileStreamingComplete" );
-                    log.info( "Finished streaming %s", destination );
-                    signal.complete( response.lastCommittedTxBeforeStoreCopy() );
-                }
-            } );
+            return catchUpClient.makeBlockingRequest( from, new GetStoreRequest( expectedStoreId ),
+                    new CopyStoreFilesResponseAdaptor( storeFileStreams, log ) );
         }
         catch ( CatchUpClientException e )
         {
@@ -90,19 +53,11 @@ public class HughStoreCopyClient
         }
     }
 
-    StoreId fetchStoreId( AdvertisedSocketAddress fromAddress ) throws StoreIdDownloadFailedException
+    StoreId fetchStoreId( AdvertisedSocketAddress fromAddress )
     {
         try
         {
-            CatchUpResponseAdaptor<StoreId> responseHandler = new CatchUpResponseAdaptor<StoreId>()
-            {
-                @Override
-                public void onGetStoreIdResponse( CompletableFuture<StoreId> signal, GetStoreIdResponse response )
-                {
-                    signal.complete( response.storeId() );
-                }
-            };
-            return catchUpClient.makeBlockingRequest( fromAddress, new GetStoreIdRequest(), responseHandler );
+            return catchUpClient.makeBlockingRequest( fromAddress, new GetStoreIdRequest(), new GetStoreIdResponseAdaptor() );
         }
         catch ( CatchUpClientException e )
         {

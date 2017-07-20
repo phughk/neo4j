@@ -60,17 +60,16 @@ public class HughCatchUpClient extends LifecycleAdapter
 
     private NioEventLoopGroup eventLoopGroup;
 
-    public static HughCatchUpClient withDefaults( Monitors monitors, CatchUpResponseCallback catchUpResponseCallback )
+    public static HughCatchUpClient withDefaults( Monitors monitors )
     {
         LogProvider logProvider = NullLogProvider.getInstance();
         SslPolicyLoader sslPolicyLoader = SslPolicyLoader.create( Config.defaults(), logProvider );
         Config config = Config.defaults();
         SslPolicy sslPolicy = sslPolicyLoader.getPolicy( config.get( CausalClusteringSettings.ssl_policy ) );
-        return new HughCatchUpClient( logProvider, Clock.systemDefaultZone(), 1 * 1000, monitors, sslPolicy, catchUpResponseCallback );
+        return new HughCatchUpClient( logProvider, Clock.systemDefaultZone(), 1 * 1000, monitors, sslPolicy );
     }
 
-    public HughCatchUpClient( LogProvider logProvider, Clock clock, long inactivityTimeoutMillis, Monitors monitors, SslPolicy sslPolicy,
-            CatchUpResponseCallback catchUpChannel )
+    public HughCatchUpClient( LogProvider logProvider, Clock clock, long inactivityTimeoutMillis, Monitors monitors, SslPolicy sslPolicy )
     {
         this.logProvider = logProvider;
         this.log = logProvider.getLog( getClass() );
@@ -78,7 +77,7 @@ public class HughCatchUpClient extends LifecycleAdapter
         this.inactivityTimeoutMillis = inactivityTimeoutMillis;
         this.monitors = monitors;
         this.sslPolicy = sslPolicy;
-        pool = new CatchUpChannelPool<>( a -> new CatchUpChannel( a, catchUpChannel ) );
+        pool = new CatchUpChannelPool<>( addr -> new CatchUpChannel( addr, null ) );
     }
 
     public <T> T makeBlockingRequest( AdvertisedSocketAddress catchUpAddress, CatchUpRequest request, CatchUpResponseCallback<T> responseHandler )
@@ -90,7 +89,6 @@ public class HughCatchUpClient extends LifecycleAdapter
 
         future.whenComplete( ( result, e ) ->
         {
-            System.out.println( "The blocking request has been complete" );
             if ( e == null )
             {
                 pool.release( channel );
@@ -130,7 +128,6 @@ public class HughCatchUpClient extends LifecycleAdapter
             } );
 
             ChannelFuture channelFuture = bootstrap.connect( destination.socketAddress() );
-            channelFuture.addListener( future -> System.out.printf( "Connection made: %s", future.getNow() ) );
             nettyChannel = channelFuture.awaitUninterruptibly().channel();
         }
 

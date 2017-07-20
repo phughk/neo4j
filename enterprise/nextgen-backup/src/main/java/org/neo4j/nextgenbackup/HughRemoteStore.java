@@ -25,14 +25,9 @@ import java.io.IOException;
 import org.neo4j.causalclustering.catchup.CatchUpClientException;
 import org.neo4j.causalclustering.catchup.CatchupResult;
 import org.neo4j.causalclustering.catchup.TxPullRequestResult;
-import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFailedException;
-import org.neo4j.causalclustering.catchup.storecopy.StoreIdDownloadFailedException;
 import org.neo4j.causalclustering.catchup.storecopy.StreamToDisk;
-import org.neo4j.causalclustering.catchup.storecopy.StreamingTransactionsFailedException;
 import org.neo4j.causalclustering.catchup.tx.TransactionLogCatchUpFactory;
 import org.neo4j.causalclustering.catchup.tx.TransactionLogCatchUpWriter;
-import org.neo4j.causalclustering.catchup.tx.TxPullClient;
-import org.neo4j.causalclustering.identity.MemberId;
 import org.neo4j.causalclustering.identity.StoreId;
 import org.neo4j.helpers.AdvertisedSocketAddress;
 import org.neo4j.io.fs.FileSystemAbstraction;
@@ -74,6 +69,44 @@ public class HughRemoteStore
         this.transactionLogFactory = transactionLogFactory;
         this.monitors = monitors;
         this.log = logProvider.getLog( getClass() );
+    }
+
+    public CatchupResult tryCatchingUp( AdvertisedSocketAddress from, StoreId expectedStoreId, File storeDir )
+    {
+        try
+        {
+            long pullIndex = getPullIndex( storeDir );
+            return pullTransactions( from, expectedStoreId, storeDir, pullIndex, false );
+        }
+        catch ( Exception e )
+        {
+            throw new RuntimeException( e );
+        }
+    }
+
+    public void copy( AdvertisedSocketAddress from, StoreId expectedStoreId, File destDir )
+    {
+        try
+        {
+            log.info( "Copying store from %s", from );
+            long lastFlushedTxId;
+            try ( StreamToDisk storeFileStreams = new StreamToDisk( destDir, fs, pageCache, monitors ) )
+            {
+                lastFlushedTxId = storeCopyClient.copyStoreFiles( from, expectedStoreId, storeFileStreams );
+            }
+
+            log.info( "Store files need to be recovered starting from: %d", lastFlushedTxId );
+
+            CatchupResult catchupResult = pullTransactions( from, expectedStoreId, destDir, lastFlushedTxId, true );
+            if ( catchupResult != SUCCESS_END_OF_STREAM )
+            {
+                throw new StreamingTransactionsFailedException( "Failed to pull transactions: " + catchupResult );
+            }
+        }
+        catch ( IOException e )
+        {
+            throw new StoreCopyFailedException( e );
+        }
     }
 
     /**
@@ -125,45 +158,6 @@ public class HughRemoteStore
         }
     }
 
-    public CatchupResult tryCatchingUp( AdvertisedSocketAddress from, StoreId expectedStoreId, File storeDir )
-    {
-        try
-        {
-            long pullIndex = getPullIndex( storeDir );
-            return pullTransactions( from, expectedStoreId, storeDir, pullIndex, false );
-        }
-        catch ( Exception e )
-        {
-            throw new RuntimeException( e );
-        }
-    }
-
-    public void copy( AdvertisedSocketAddress from, StoreId expectedStoreId, File destDir )
-            throws StoreCopyFailedException, StreamingTransactionsFailedException
-    {
-        try
-        {
-            log.info( "Copying store from %s", from );
-            long lastFlushedTxId;
-            try ( StreamToDisk storeFileStreams = new StreamToDisk( destDir, fs, pageCache, monitors ) )
-            {
-                lastFlushedTxId = storeCopyClient.copyStoreFiles( from, expectedStoreId, storeFileStreams );
-            }
-
-            log.info( "Store files need to be recovered starting from: %d", lastFlushedTxId );
-
-            CatchupResult catchupResult = pullTransactions( from, expectedStoreId, destDir, lastFlushedTxId, true );
-            if ( catchupResult != SUCCESS_END_OF_STREAM )
-            {
-                throw new StreamingTransactionsFailedException( "Failed to pull transactions: " + catchupResult );
-            }
-        }
-        catch ( IOException e )
-        {
-            throw new StoreCopyFailedException( e );
-        }
-    }
-
     private CatchupResult pullTransactions( AdvertisedSocketAddress from, StoreId expectedStoreId, File storeDir, long fromTxId, boolean asPartOfStoreCopy )
             throws IOException, StoreCopyFailedException
     {
@@ -188,11 +182,6 @@ public class HughRemoteStore
         {
             throw new StoreCopyFailedException( e );
         }
-    }
-
-    public StoreId getStoreId( AdvertisedSocketAddress from ) throws StoreIdDownloadFailedException
-    {
-        return storeCopyClient.fetchStoreId( from );
     }
 }
 
