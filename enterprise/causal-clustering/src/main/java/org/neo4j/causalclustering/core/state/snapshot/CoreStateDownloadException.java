@@ -17,21 +17,29 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.neo4j.causalclustering.catchup;
+package org.neo4j.causalclustering.core.state.snapshot;
+
+import java.util.function.Supplier;
 
 import org.neo4j.causalclustering.identity.MemberId;
 
 import static java.lang.String.format;
 
-public class CatchUpClientException extends Exception
+public class CoreStateDownloadException extends Exception
 {
-    public CatchUpClientException( String message )
+    public CoreStateDownloadException( String message )
     {
         super( message );
     }
 
-    CatchUpClientException( String operation, Throwable cause )
+    public CoreStateDownloadException( MemberId memberId )
+    {
+        super( format( "Cannot find the target member %s socket address", memberId ) );
+    }
+
+    CoreStateDownloadException( String operation, Throwable cause )
     {
         super( operation, cause );
     }
 }
+

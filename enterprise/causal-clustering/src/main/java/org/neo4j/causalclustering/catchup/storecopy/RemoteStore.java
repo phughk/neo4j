@@ -28,6 +28,7 @@ import org.neo4j.causalclustering.catchup.TxPullRequestResult;
 import org.neo4j.causalclustering.catchup.tx.TransactionLogCatchUpFactory;
 import org.neo4j.causalclustering.catchup.tx.TransactionLogCatchUpWriter;
 import org.neo4j.causalclustering.catchup.tx.TxPullClient;
+import org.neo4j.causalclustering.core.state.snapshot.CoreStateDownloadException;
 import org.neo4j.causalclustering.identity.MemberId;
 import org.neo4j.causalclustering.identity.StoreId;
 import org.neo4j.io.fs.FileSystemAbstraction;
@@ -134,7 +135,7 @@ public class RemoteStore
     }
 
     public void copy( MemberId from, StoreId expectedStoreId, File destDir )
-            throws StoreCopyFailedException, StreamingTransactionsFailedException
+            throws StoreCopyFailedException, StreamingTransactionsFailedException, CoreStateDownloadException
     {
         try
         {
@@ -172,6 +173,7 @@ public class RemoteStore
             CatchupResult lastStatus;
             do
             {
+
                 TxPullRequestResult result =
                         txPullClient.pullTransactions( from, expectedStoreId, previousTxId, writer );
                 lastStatus = result.catchupResult();
@@ -181,13 +183,13 @@ public class RemoteStore
 
             return lastStatus;
         }
-        catch ( CatchUpClientException e )
+        catch ( CoreStateDownloadException | CatchUpClientException e )
         {
             throw new StoreCopyFailedException( e );
         }
     }
 
-    public StoreId getStoreId( MemberId from ) throws StoreIdDownloadFailedException
+    public StoreId getStoreId( MemberId from ) throws StoreIdDownloadFailedException, CoreStateDownloadException
     {
         return storeCopyClient.fetchStoreId( from );
     }

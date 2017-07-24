@@ -25,45 +25,48 @@ import org.neo4j.causalclustering.catchup.CatchUpClient;
 import org.neo4j.causalclustering.catchup.CatchUpClientException;
 import org.neo4j.causalclustering.catchup.CatchUpResponseAdaptor;
 import org.neo4j.causalclustering.catchup.TxPullRequestResult;
+import org.neo4j.causalclustering.core.state.snapshot.CoreStateDownloadException;
+import org.neo4j.causalclustering.discovery.TopologyService;
 import org.neo4j.causalclustering.identity.MemberId;
 import org.neo4j.causalclustering.identity.StoreId;
+import org.neo4j.helpers.AdvertisedSocketAddress;
 import org.neo4j.kernel.monitoring.Monitors;
 
 public class TxPullClient
 {
     private final CatchUpClient catchUpClient;
     private PullRequestMonitor pullRequestMonitor;
+    private final TopologyService topologyService;
 
-    public TxPullClient( CatchUpClient catchUpClient, Monitors monitors )
+    public TxPullClient( CatchUpClient catchUpClient, Monitors monitors, TopologyService topologyService )
     {
         this.catchUpClient = catchUpClient;
         this.pullRequestMonitor = monitors.newMonitor( PullRequestMonitor.class );
+        this.topologyService = topologyService;
     }
 
-    public TxPullRequestResult pullTransactions( MemberId from, StoreId storeId, long previousTxId,
-                                                 TxPullResponseListener txPullResponseListener )
-            throws CatchUpClientException
+    // TODO use IP's, use TopologyClientAbove to remove need for MemberId at this stage
+    public TxPullRequestResult pullTransactions( MemberId from, StoreId storeId, long previousTxId, TxPullResponseListener txPullResponseListener )
+            throws CatchUpClientException, CoreStateDownloadException
     {
         pullRequestMonitor.txPullRequest( previousTxId );
-        return catchUpClient.makeBlockingRequest( from, new TxPullRequest( previousTxId, storeId ),
-                new CatchUpResponseAdaptor<TxPullRequestResult>()
-                {
-                    private long lastTxIdReceived = previousTxId;
+        AdvertisedSocketAddress fromAddress = topologyService.findCatchupAddress( from ).orElseThrow( () -> new CoreStateDownloadException( from ) );
+        return catchUpClient.makeBlockingRequest( fromAddress, new TxPullRequest( previousTxId, storeId ), new CatchUpResponseAdaptor<TxPullRequestResult>()
+        {
+            private long lastTxIdReceived = previousTxId;
 
-                    @Override
-                    public void onTxPullResponse( CompletableFuture<TxPullRequestResult> signal,
-                                                  TxPullResponse response )
-                    {
-                        this.lastTxIdReceived = response.tx().getCommitEntry().getTxId();
-                        txPullResponseListener.onTxReceived( response );
-                    }
+            @Override
+            public void onTxPullResponse( CompletableFuture<TxPullRequestResult> signal, TxPullResponse response )
+            {
+                this.lastTxIdReceived = response.tx().getCommitEntry().getTxId();
+                txPullResponseListener.onTxReceived( response );
+            }
 
-                    @Override
-                    public void onTxStreamFinishedResponse( CompletableFuture<TxPullRequestResult> signal,
-                            TxStreamFinishedResponse response )
-                    {
-                        signal.complete( new TxPullRequestResult( response.status(), lastTxIdReceived ) );
-                    }
-                } );
+            @Override
+            public void onTxStreamFinishedResponse( CompletableFuture<TxPullRequestResult> signal, TxStreamFinishedResponse response )
+            {
+                signal.complete( new TxPullRequestResult( response.status(), lastTxIdReceived ) );
+            }
+        } );
     }
 }

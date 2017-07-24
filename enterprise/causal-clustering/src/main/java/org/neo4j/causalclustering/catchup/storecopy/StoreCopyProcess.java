@@ -21,6 +21,7 @@ package org.neo4j.causalclustering.catchup.storecopy;
 
 import java.io.IOException;
 
+import org.neo4j.causalclustering.core.state.snapshot.CoreStateDownloadException;
 import org.neo4j.causalclustering.identity.MemberId;
 import org.neo4j.causalclustering.identity.StoreId;
 import org.neo4j.io.fs.FileSystemAbstraction;
@@ -37,8 +38,8 @@ public class StoreCopyProcess
     private final Log log;
     private final RemoteStore remoteStore;
 
-    public StoreCopyProcess( FileSystemAbstraction fs, PageCache pageCache, LocalDatabase localDatabase,
-            CopiedStoreRecovery copiedStoreRecovery, RemoteStore remoteStore, LogProvider logProvider )
+    public StoreCopyProcess( FileSystemAbstraction fs, PageCache pageCache, LocalDatabase localDatabase, CopiedStoreRecovery copiedStoreRecovery,
+            RemoteStore remoteStore, LogProvider logProvider )
     {
         this.fs = fs;
         this.pageCache = pageCache;
@@ -51,12 +52,15 @@ public class StoreCopyProcess
     public void replaceWithStoreFrom( MemberId source, StoreId expectedStoreId )
             throws IOException, StoreCopyFailedException, StreamingTransactionsFailedException
     {
-        try ( TemporaryStoreDirectory tempStore = new TemporaryStoreDirectory( fs, pageCache,
-                localDatabase.storeDir() ) )
+        try ( TemporaryStoreDirectory tempStore = new TemporaryStoreDirectory( fs, pageCache, localDatabase.storeDir() ) )
         {
             remoteStore.copy( source, expectedStoreId, tempStore.storeDir() );
             copiedStoreRecovery.recoverCopiedStore( tempStore.storeDir() );
             localDatabase.replaceWith( tempStore.storeDir() );
+        }
+        catch ( CoreStateDownloadException e )
+        {
+            throw new RuntimeException( e );
         }
         log.info( "Replaced store with one downloaded from %s", source );
     }

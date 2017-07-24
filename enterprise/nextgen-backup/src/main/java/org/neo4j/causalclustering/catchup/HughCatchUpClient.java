@@ -69,6 +69,7 @@ public class HughCatchUpClient extends LifecycleAdapter
         return new HughCatchUpClient( logProvider, Clock.systemDefaultZone(), 1 * 1000, monitors, sslPolicy );
     }
 
+    // TODO keep it the same as CatchUpClient, not use topology
     public HughCatchUpClient( LogProvider logProvider, Clock clock, long inactivityTimeoutMillis, Monitors monitors, SslPolicy sslPolicy )
     {
         this.logProvider = logProvider;

@@ -47,7 +47,7 @@ import static org.neo4j.causalclustering.catchup.CatchupResult.SUCCESS_END_OF_BA
 import static org.neo4j.causalclustering.catchup.CatchupResult.SUCCESS_END_OF_STREAM;
 import static org.neo4j.kernel.impl.transaction.log.TransactionIdStore.BASE_TX_ID;
 
-public class HughRemoteStore
+public class HughRemoteStore // TODO captures reference to remote store
 {
     private final Log log;
     private final Monitors monitors;

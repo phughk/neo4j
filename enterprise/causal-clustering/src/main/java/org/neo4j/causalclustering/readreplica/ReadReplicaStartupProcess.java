@@ -27,6 +27,7 @@ import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFailedException;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyProcess;
 import org.neo4j.causalclustering.catchup.storecopy.StoreIdDownloadFailedException;
 import org.neo4j.causalclustering.catchup.storecopy.StreamingTransactionsFailedException;
+import org.neo4j.causalclustering.core.state.snapshot.CoreStateDownloadException;
 import org.neo4j.causalclustering.helper.RetryStrategy;
 import org.neo4j.causalclustering.identity.MemberId;
 import org.neo4j.causalclustering.identity.StoreId;
@@ -50,9 +51,9 @@ class ReadReplicaStartupProcess implements Lifecycle
     private String lastIssue;
     private final StoreCopyProcess storeCopyProcess;
 
-    ReadReplicaStartupProcess( RemoteStore remoteStore, LocalDatabase localDatabase,
-            Lifecycle txPulling, UpstreamDatabaseStrategySelector selectionStrategyPipeline, RetryStrategy retryStrategy,
-            LogProvider debugLogProvider, LogProvider userLogProvider, StoreCopyProcess storeCopyProcess )
+    ReadReplicaStartupProcess( RemoteStore remoteStore, LocalDatabase localDatabase, Lifecycle txPulling,
+            UpstreamDatabaseStrategySelector selectionStrategyPipeline, RetryStrategy retryStrategy, LogProvider debugLogProvider, LogProvider userLogProvider,
+            StoreCopyProcess storeCopyProcess )
     {
         this.remoteStore = remoteStore;
         this.localDatabase = localDatabase;
@@ -112,6 +113,10 @@ class ReadReplicaStartupProcess implements Lifecycle
                 lastIssue = issueOf( format( "getting store id from %s", source ), attempt );
                 debugLog.warn( lastIssue );
             }
+            catch ( CoreStateDownloadException e )
+            {
+                throw new RuntimeException( e );
+            }
 
             try
             {
@@ -145,8 +150,7 @@ class ReadReplicaStartupProcess implements Lifecycle
     }
 
     private void syncStoreWithUpstream( MemberId source )
-            throws IOException, StoreIdDownloadFailedException, StoreCopyFailedException,
-            StreamingTransactionsFailedException
+            throws IOException, StoreIdDownloadFailedException, StoreCopyFailedException, StreamingTransactionsFailedException, CoreStateDownloadException
     {
         if ( localDatabase.isEmpty() )
         {
@@ -167,15 +171,14 @@ class ReadReplicaStartupProcess implements Lifecycle
         }
     }
 
-    private void ensureSameStoreIdAs( MemberId upstream ) throws StoreIdDownloadFailedException
+    private void ensureSameStoreIdAs( MemberId upstream ) throws StoreIdDownloadFailedException, CoreStateDownloadException
     {
         StoreId localStoreId = localDatabase.storeId();
         StoreId remoteStoreId = remoteStore.getStoreId( upstream );
         if ( !localStoreId.equals( remoteStoreId ) )
         {
             throw new IllegalStateException( format( "This read replica cannot join the cluster. " +
-                            "The local database is not empty and has a mismatching storeId: expected %s actual %s.",
-                    remoteStoreId, localStoreId ) );
+                    "The local database is not empty and has a mismatching storeId: expected %s actual %s.", remoteStoreId, localStoreId ) );
         }
     }
 

@@ -31,8 +31,6 @@ import java.time.Clock;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import org.neo4j.causalclustering.discovery.TopologyService;
-import org.neo4j.causalclustering.identity.MemberId;
 import org.neo4j.causalclustering.messaging.CatchUpRequest;
 import org.neo4j.helpers.AdvertisedSocketAddress;
 import org.neo4j.helpers.NamedThreadFactory;
@@ -48,7 +46,6 @@ import static org.neo4j.causalclustering.catchup.TimeoutLoop.waitForCompletion;
 public class CatchUpClient extends LifecycleAdapter
 {
     private final LogProvider logProvider;
-    private final TopologyService topologyService;
     private final Log log;
     private final Clock clock;
     private final Monitors monitors;
@@ -58,11 +55,9 @@ public class CatchUpClient extends LifecycleAdapter
 
     private NioEventLoopGroup eventLoopGroup;
 
-    public CatchUpClient( TopologyService topologyService, LogProvider logProvider, Clock clock,
-            long inactivityTimeoutMillis, Monitors monitors, SslPolicy sslPolicy )
+    public CatchUpClient( LogProvider logProvider, Clock clock, long inactivityTimeoutMillis, Monitors monitors, SslPolicy sslPolicy )
     {
         this.logProvider = logProvider;
-        this.topologyService = topologyService;
         this.log = logProvider.getLog( getClass() );
         this.clock = clock;
         this.inactivityTimeoutMillis = inactivityTimeoutMillis;
@@ -70,18 +65,13 @@ public class CatchUpClient extends LifecycleAdapter
         this.sslPolicy = sslPolicy;
     }
 
-    public <T> T makeBlockingRequest( MemberId upstream, CatchUpRequest request,
-            CatchUpResponseCallback<T> responseHandler ) throws CatchUpClientException
+    // TODO change MemberId to Optional<AdvertisedSocketAddress>
+    public <T> T makeBlockingRequest( AdvertisedSocketAddress catchUpAddress, CatchUpRequest request, CatchUpResponseCallback<T> responseHandler )
+            throws CatchUpClientException
     {
         CompletableFuture<T> future = new CompletableFuture<>();
-        Optional<AdvertisedSocketAddress> catchUpAddress = topologyService.findCatchupAddress( upstream );
 
-        if ( !catchUpAddress.isPresent() )
-        {
-            throw new CatchUpClientException( "Cannot find the target member socket address" );
-        }
-
-        CatchUpChannel channel = pool.acquire( catchUpAddress.get() );
+        CatchUpChannel channel = pool.acquire( catchUpAddress );
 
         future.whenComplete( ( result, e ) ->
         {
@@ -98,8 +88,7 @@ public class CatchUpClient extends LifecycleAdapter
         channel.setResponseHandler( responseHandler, future );
         channel.send( request );
 
-        String operation = String.format( "Timed out executing operation %s on %s (%s)",
-                request, upstream, catchUpAddress.get() );
+        String operation = String.format( "Timed out executing operation %s on %s (%s)", request, catchUpAddress );
 
         return waitForCompletion( future, operation, channel::millisSinceLastResponse, inactivityTimeoutMillis, log );
     }
@@ -114,24 +103,20 @@ public class CatchUpClient extends LifecycleAdapter
         {
             this.destination = destination;
             handler = new TrackingResponseHandler( new CatchUpResponseAdaptor(), clock );
-            Bootstrap bootstrap = new Bootstrap()
-                    .group( eventLoopGroup )
-                    .channel( NioSocketChannel.class )
-                    .handler( new ChannelInitializer<SocketChannel>()
-                    {
-                        @Override
-                        protected void initChannel( SocketChannel ch ) throws Exception
-                        {
-                            CatchUpClientChannelPipeline.initChannel( ch, handler, logProvider, monitors, sslPolicy );
-                        }
-                    } );
+            Bootstrap bootstrap = new Bootstrap().group( eventLoopGroup ).channel( NioSocketChannel.class ).handler( new ChannelInitializer<SocketChannel>()
+            {
+                @Override
+                protected void initChannel( SocketChannel ch ) throws Exception
+                {
+                    CatchUpClientChannelPipeline.initChannel( ch, handler, logProvider, monitors, sslPolicy );
+                }
+            } );
 
             ChannelFuture channelFuture = bootstrap.connect( destination.socketAddress() );
             nettyChannel = channelFuture.awaitUninterruptibly().channel();
         }
 
-        void setResponseHandler( CatchUpResponseCallback responseHandler,
-                                 CompletableFuture<?> requestOutcomeSignal )
+        void setResponseHandler( CatchUpResponseCallback responseHandler, CompletableFuture<?> requestOutcomeSignal )
         {
             handler.setResponseHandler( responseHandler, requestOutcomeSignal );
         }
