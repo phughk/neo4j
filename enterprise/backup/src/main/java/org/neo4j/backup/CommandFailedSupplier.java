@@ -17,18 +17,12 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.neo4j.causalclustering.handlers;
+package org.neo4j.backup;
 
-import io.netty.channel.ChannelHandlerAdapter;
-import io.netty.channel.ChannelHandlerContext;
+import org.neo4j.commandline.admin.CommandFailed;
 
-public class ExceptionSwallowingHandler extends ChannelHandlerAdapter
+@FunctionalInterface
+public interface CommandFailedSupplier<T>
 {
-    @Override
-    public void exceptionCaught( ChannelHandlerContext ctx, Throwable cause ) throws Exception
-    {
-        System.out.println("Received call on final processor (ExceptionSwallowingHandler). Exception caught: " + cause);
-        cause.printStackTrace(System.err);
-        // yummy
-    }
+    T get() throws CommandFailed;
 }

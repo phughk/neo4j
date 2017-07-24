@@ -36,6 +36,7 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.mockito.ArgumentCaptor;
 
+import org.neo4j.backup.nextgen.BackupModule;
 import org.neo4j.commandline.admin.CommandFailed;
 import org.neo4j.commandline.admin.CommandLocator;
 import org.neo4j.commandline.admin.IncorrectUsage;
@@ -84,6 +85,8 @@ public class OnlineBackupCommandTest
 
     private BackupService backupService = mock( BackupService.class );
     private OutsideWorld outsideWorld = mock( OutsideWorld.class );
+    private BackupModule backupModule = mock( BackupModule.class );
+    private OnlineBackupCommandConfigLoader onlineBackupCommandConfigLoader = mock( OnlineBackupCommandConfigLoader.class );
     private Path configDir;
     private ConsistencyCheckService consistencyCheckService = mock( ConsistencyCheckService.class );
     private ConsistencyCheckService.Result ccResult = mock( ConsistencyCheckService.Result.class );
@@ -681,10 +684,15 @@ public class OnlineBackupCommandTest
         }
     }
 
+    @Test
+    public void todoSomethingAboutCausalClusteringPriority()
+    {
+        // TODO
+    }
+
     private void execute( String... args ) throws IncorrectUsage, CommandFailed
     {
-        new OnlineBackupCommand( backupService, Paths.get( "/some/path" ), configDir, consistencyCheckService,
-                outsideWorld ).execute( args );
+        new OnlineBackupCommand( backupService, consistencyCheckService, outsideWorld, () -> backupModule, onlineBackupCommandConfigLoader ).execute( args );
     }
 
     /**

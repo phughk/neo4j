@@ -21,7 +21,7 @@ package org.neo4j.causalclustering.catchup.storecopy;
 
 public class StreamingTransactionsFailedException extends Exception
 {
-    StreamingTransactionsFailedException( String message )
+    public StreamingTransactionsFailedException( String message )
     {
         super( message );
     }

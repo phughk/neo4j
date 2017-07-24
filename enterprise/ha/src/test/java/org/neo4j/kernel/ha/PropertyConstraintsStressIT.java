@@ -93,7 +93,7 @@ public class PropertyConstraintsStressIT
             Long.getLong( "neo4j.PropertyConstraintsStressIT.runtime", TimeUnit.SECONDS.toMillis( 10 ) );
 
     /** Label or relationship type to constrain for the current iteration of the test. */
-    private volatile String labelOrRelType = "Foo";
+    private volatile String labelOrRelType = "Foo.java";
 
     /** Property key to constrain for the current iteration of the test. */
     private volatile String property;
@@ -391,7 +391,7 @@ public class PropertyConstraintsStressIT
     private void setLabelAndPropertyForNextRound()
     {
         property = "Key-" + roundNo.incrementAndGet();
-        labelOrRelType = "Foo-" + roundNo.get();
+        labelOrRelType = "Foo.java-" + roundNo.get();
     }
 
     private abstract class Operation

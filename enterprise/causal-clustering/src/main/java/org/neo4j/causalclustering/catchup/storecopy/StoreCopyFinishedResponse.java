@@ -39,7 +39,7 @@ public class StoreCopyFinishedResponse
         this.lastCommittedTxBeforeStoreCopy = lastCommittedTxBeforeStoreCopy;
     }
 
-    long lastCommittedTxBeforeStoreCopy()
+    public long lastCommittedTxBeforeStoreCopy()
     {
         return lastCommittedTxBeforeStoreCopy;
     }

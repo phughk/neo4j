@@ -359,7 +359,7 @@ public class SessionResetIT
         try
         {
             Path csvFile = Files.createTempFile( "test", ".csv" );
-            List<String> lines = range( 0, 50000 ).mapToObj( i -> "Foo-" + i + ", Bar-" + i ).collect( toList() );
+            List<String> lines = range( 0, 50000 ).mapToObj( i -> "Foo.java-" + i + ", Bar-" + i ).collect( toList() );
             return Files.write( csvFile, lines ).toAbsolutePath().toUri();
         }
         catch ( IOException e )

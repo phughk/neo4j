@@ -47,7 +47,8 @@ public class StoreCopyClient
         log = logProvider.getLog( getClass() );
     }
 
-    long copyStoreFiles( AdvertisedSocketAddress from, StoreId expectedStoreId, StoreFileStreams storeFileStreams ) throws StoreCopyFailedException
+    public long copyStoreFiles( AdvertisedSocketAddress from, StoreId expectedStoreId, StoreFileStreams storeFileStreams )
+            throws StoreCopyFailedException
     {
         try
         {
@@ -84,7 +85,7 @@ public class StoreCopyClient
         }
     }
 
-    StoreId fetchStoreId( AdvertisedSocketAddress fromAddress ) throws StoreIdDownloadFailedException
+    public StoreId fetchStoreId( AdvertisedSocketAddress fromAddress ) throws StoreIdDownloadFailedException
     {
         try
         {

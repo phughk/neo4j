@@ -20,14 +20,18 @@
 package org.neo4j.backup;
 
 import java.nio.file.Path;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 
 import org.neo4j.OnlineBackupCommandSection;
+import org.neo4j.backup.nextgen.BackupModule;
 import org.neo4j.commandline.admin.AdminCommand;
 import org.neo4j.commandline.admin.AdminCommandSection;
 import org.neo4j.commandline.admin.OutsideWorld;
 import org.neo4j.commandline.arguments.Arguments;
 import org.neo4j.consistency.ConsistencyCheckService;
+import org.neo4j.kernel.configuration.Config;
+import org.neo4j.logging.NullLogProvider;
 
 import static java.lang.String.format;
 
@@ -50,12 +54,9 @@ public class OnlineBackupCommandProvider extends AdminCommand.Provider
     public String description()
     {
         return format( "Perform an online backup from a running Neo4j enterprise server. Neo4j's backup service must " +
-                "have been configured on the server beforehand.%n" +
-                "%n" +
+                "have been configured on the server beforehand.%n" + "%n" +
                 "All consistency checks except 'cc-graph' can be quite expensive so it may be useful to turn them off" +
-                " for very large databases. Increasing the heap size can also be a good idea." +
-                " See 'neo4j-admin help' for details.%n" +
-                "%n" +
+                " for very large databases. Increasing the heap size can also be a good idea." + " See 'neo4j-admin help' for details.%n" + "%n" +
                 "For more information see: https://neo4j.com/docs/operations-manual/current/backup/" );
     }
 
@@ -77,8 +78,9 @@ public class OnlineBackupCommandProvider extends AdminCommand.Provider
     @Nonnull
     public AdminCommand create( Path homeDir, Path configDir, OutsideWorld outsideWorld )
     {
-        return new OnlineBackupCommand(
-                new BackupService( outsideWorld.errorStream() ), homeDir, configDir,
-                new ConsistencyCheckService(), outsideWorld );
+        OnlineBackupCommandConfigLoader onlineBackupCommandConfigLoader = new OnlineBackupCommandConfigLoader( homeDir, configDir );
+        CommandFailedSupplier<Config> abc = onlineBackupCommandConfigLoader.loadConfig( Optional.ofNullable( configDir ) );
+        return new OnlineBackupCommand( new BackupService( outsideWorld.errorStream() ), new ConsistencyCheckService(), outsideWorld,
+                () -> new BackupModule( abc, NullLogProvider.getInstance() ), onlineBackupCommandConfigLoader );
     }
 }

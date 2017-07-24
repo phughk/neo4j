@@ -324,7 +324,7 @@ public class ConstraintHaIT
             cluster.sync();
 
             // and given I have some data for the constraint
-            createEntityInTx( cluster.getAnySlave(), type, key, "Foo" );
+            createEntityInTx( cluster.getAnySlave(), type, key, "Foo.java" );
 
             // when
             try ( Transaction tx = master.beginTx() )
@@ -341,7 +341,7 @@ public class ConstraintHaIT
                 {
                     assertNull( getConstraint( clusterMember, type, key ) );
                     assertNull( getIndex( clusterMember, type, key ) );
-                    createConstraintViolation( clusterMember, type, key, "Foo" );
+                    createConstraintViolation( clusterMember, type, key, "Foo.java" );
                     tx.success();
                 }
             }

@@ -27,7 +27,7 @@ public class GetStoreRequest implements CatchUpRequest
 {
     private final StoreId expectedStoreId;
 
-    GetStoreRequest( StoreId expectedStoreId )
+    public GetStoreRequest( StoreId expectedStoreId )
     {
         this.expectedStoreId = expectedStoreId;
     }

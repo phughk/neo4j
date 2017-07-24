@@ -49,10 +49,10 @@ import org.neo4j.logging.LogProvider;
 import static java.lang.System.currentTimeMillis;
 
 /**
- * Able to pull updates from a master and apply onto this slave database.
+ * Able to pull updates from a master and get onto this slave database.
  * <p>
  * Updates are pulled and applied using a single and dedicated thread, created in here. No other threads are allowed to
- * pull and apply transactions on a slave. Calling one of the {@link Master#pullUpdates(RequestContext) pullUpdates}
+ * pull and get transactions on a slave. Calling one of the {@link Master#pullUpdates(RequestContext) pullUpdates}
  * {@link TransactionObligationFulfiller#fulfill(long)} will {@link SlaveUpdatePuller#poke() poke} that single thread,
  * so
  * that it gets going, if not already doing so, with its usual task of pulling updates and the caller which poked

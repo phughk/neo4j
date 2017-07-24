@@ -17,18 +17,23 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.neo4j.causalclustering.handlers;
+package org.neo4j.backup.nextgen;
 
-import io.netty.channel.ChannelHandlerAdapter;
-import io.netty.channel.ChannelHandlerContext;
+import java.io.File;
+import java.io.IOException;
 
-public class ExceptionSwallowingHandler extends ChannelHandlerAdapter
+import org.neo4j.io.fs.FileSystemAbstraction;
+import org.neo4j.kernel.impl.store.id.IdGeneratorImpl;
+
+public class IdGeneratorWrapper
 {
-    @Override
-    public void exceptionCaught( ChannelHandlerContext ctx, Throwable cause ) throws Exception
+    public long readHighId( FileSystemAbstraction fileSystemAbstraction, File file ) throws IOException
     {
-        System.out.println("Received call on final processor (ExceptionSwallowingHandler). Exception caught: " + cause);
-        cause.printStackTrace(System.err);
-        // yummy
+        return IdGeneratorImpl.readHighId( fileSystemAbstraction, file );
+    }
+
+    public void createGenerator( FileSystemAbstraction fileSystemAbstraction, File file, long highId, boolean throwIfFileExists )
+    {
+        IdGeneratorImpl.createGenerator( fileSystemAbstraction, file, highId, throwIfFileExists );
     }
 }

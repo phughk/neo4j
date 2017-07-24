@@ -83,7 +83,7 @@ import static org.neo4j.test.server.HTTP.withBaseUri;
 @RunWith( Parameterized.class )
 public class TransactionTerminationIT
 {
-    private static final Label LABEL = Label.label( "Foo" );
+    private static final Label LABEL = Label.label( "Foo.java" );
     private static final String PROPERTY = "bar";
 
     @Parameter

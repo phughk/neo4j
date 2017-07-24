@@ -17,18 +17,31 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.neo4j.causalclustering.handlers;
+package org.neo4j.backup.nextgen;
 
-import io.netty.channel.ChannelHandlerAdapter;
-import io.netty.channel.ChannelHandlerContext;
+import static java.lang.String.format;
 
-public class ExceptionSwallowingHandler extends ChannelHandlerAdapter
+public class TestHelpers
 {
-    @Override
-    public void exceptionCaught( ChannelHandlerContext ctx, Throwable cause ) throws Exception
+    public static Exception executionIsExpectedToFail( Runnable runnable )
     {
-        System.out.println("Received call on final processor (ExceptionSwallowingHandler). Exception caught: " + cause);
-        cause.printStackTrace(System.err);
-        // yummy
+        return executionIsExpectedToFail( runnable, RuntimeException.class );
+    }
+
+    public static <E extends Exception> E executionIsExpectedToFail( Runnable runnable, Class<E> exceptionClass )
+    {
+        try
+        {
+            runnable.run();
+        }
+        catch ( Exception e )
+        {
+            if ( !exceptionClass.isInstance( e ) )
+            {
+                throw new RuntimeException( format( "Exception %s is not of type %s", e.getClass().getName(), exceptionClass.getName() ), e );
+            }
+            return (E) e;
+        }
+        throw new RuntimeException( "The code expected to fail hasn't failed" );
     }
 }

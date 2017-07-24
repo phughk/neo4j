@@ -55,7 +55,7 @@ public class LocalDeadlockDetectedException extends DeadlockDetectedException
     {
         StringWriter stringWriter = new StringWriter();
         stringWriter.append( format(
-                "%s tried to apply local %s lock on %s(%s) after acquired on master. Currently these locks exist:%n",
+                "%s tried to get local %s lock on %s(%s) after acquired on master. Currently these locks exist:%n",
                 client, type, resourceType, resourceId ) );
 
         lockManager.accept( new DumpLocksVisitor( FormattedLog.withUTCTimeZone().toWriter( stringWriter ) ) );

@@ -56,8 +56,7 @@ public class CatchUpClient extends LifecycleAdapter
 
     private NioEventLoopGroup eventLoopGroup;
 
-    public CatchUpClient( LogProvider logProvider, Clock clock, long inactivityTimeoutMillis, Monitors monitors,
-            SslPolicy sslPolicy )
+    public CatchUpClient( LogProvider logProvider, Clock clock, long inactivityTimeoutMillis, Monitors monitors, SslPolicy sslPolicy )
     {
         this.logProvider = logProvider;
         this.log = logProvider.getLog( getClass() );

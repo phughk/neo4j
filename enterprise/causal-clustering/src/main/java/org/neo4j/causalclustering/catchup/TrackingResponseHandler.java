@@ -127,6 +127,7 @@ class TrackingResponseHandler implements CatchUpResponseHandler
 
     Optional<Long> lastResponseTime()
     {
+        System.out.println( "lastResponseTime = " + lastResponseTime );
         return Optional.ofNullable( lastResponseTime );
     }
 

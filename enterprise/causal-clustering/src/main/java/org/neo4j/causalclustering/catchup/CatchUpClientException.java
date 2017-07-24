@@ -19,9 +19,13 @@
  */
 package org.neo4j.causalclustering.catchup;
 
+import org.neo4j.causalclustering.identity.MemberId;
+
+import static java.lang.String.format;
+
 public class CatchUpClientException extends Exception
 {
-    CatchUpClientException( String message )
+    public CatchUpClientException( String message )
     {
         super( message );
     }

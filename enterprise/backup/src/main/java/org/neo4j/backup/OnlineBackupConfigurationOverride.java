@@ -17,18 +17,26 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.neo4j.causalclustering.handlers;
+package org.neo4j.backup;
 
-import io.netty.channel.ChannelHandlerAdapter;
-import io.netty.channel.ChannelHandlerContext;
+import org.neo4j.commandline.admin.IncorrectUsage;
+import org.neo4j.commandline.arguments.Arguments;
+import org.neo4j.consistency.ConsistencyCheckSettings;
+import org.neo4j.kernel.configuration.Config;
 
-public class ExceptionSwallowingHandler extends ChannelHandlerAdapter
+public class OnlineBackupConfigurationOverride
 {
-    @Override
-    public void exceptionCaught( ChannelHandlerContext ctx, Throwable cause ) throws Exception
+    final boolean checkGraph;
+    final boolean checkIndexes;
+    final boolean checkLabelScanStore;
+    final boolean checkPropertyOwners;
+
+    public OnlineBackupConfigurationOverride( boolean checkGraph, boolean checkIndexes, boolean checkLabelScanStore, boolean checkPropertyOwners )
     {
-        System.out.println("Received call on final processor (ExceptionSwallowingHandler). Exception caught: " + cause);
-        cause.printStackTrace(System.err);
-        // yummy
+        this.checkGraph = checkGraph;
+        this.checkIndexes = checkIndexes;
+        this.checkLabelScanStore = checkLabelScanStore;
+        this.checkPropertyOwners = checkPropertyOwners;
     }
+
 }

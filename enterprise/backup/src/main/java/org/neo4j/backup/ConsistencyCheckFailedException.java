@@ -19,7 +19,7 @@
  */
 package org.neo4j.backup;
 
-class ConsistencyCheckFailedException extends Exception
+public class ConsistencyCheckFailedException extends Exception
 {
     ConsistencyCheckFailedException( Throwable cause )
     {
