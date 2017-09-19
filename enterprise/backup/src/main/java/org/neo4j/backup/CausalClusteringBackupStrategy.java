@@ -42,7 +42,8 @@ public class CausalClusteringBackupStrategy extends LifecycleAdapter implements 
     }
 
     @Override
-    public PotentiallyErroneousState<BackupStageOutcome> performFullBackup( File desiredBackupLocation, Config config, OptionalHostnamePort userProvidedAddress )
+    public PotentiallyErroneousState<BackupStageOutcome> performFullBackup( File desiredBackupLocation, Config config,
+            OptionalHostnamePort userProvidedAddress )
     {
         AdvertisedSocketAddress fromAddress = addressResolutionHelper.resolveCorrectCCAddress( config, userProvidedAddress );
         StoreId storeId;
@@ -57,18 +58,18 @@ public class CausalClusteringBackupStrategy extends LifecycleAdapter implements 
 
         try
         {
-            backupDelegator.retrieveStore( desiredBackupLocation, storeId, fromAddress );
+            backupDelegator.copy( fromAddress,storeId, desiredBackupLocation );
+            return new PotentiallyErroneousState<>( BackupStageOutcome.SUCCESS, null );
         }
         catch ( StoreCopyFailedException e )
         {
             return new PotentiallyErroneousState<>( BackupStageOutcome.FAILURE, e );
         }
-
-        return catchup( fromAddress, storeId, desiredBackupLocation );
     }
 
     @Override
-    public PotentiallyErroneousState<BackupStageOutcome> performIncrementalBackup( File desiredBackupLocation, Config config, OptionalHostnamePort userProvidedAddress )
+    public PotentiallyErroneousState<BackupStageOutcome> performIncrementalBackup( File desiredBackupLocation, Config config,
+            OptionalHostnamePort userProvidedAddress )
     {
         AdvertisedSocketAddress fromAddress = addressResolutionHelper.resolveCorrectCCAddress( config, userProvidedAddress );
         StoreId storeId;
@@ -80,7 +81,7 @@ public class CausalClusteringBackupStrategy extends LifecycleAdapter implements 
         {
             return new PotentiallyErroneousState<>( BackupStageOutcome.WRONG_PROTOCOL, e );
         }
-        return catchup(fromAddress, storeId, desiredBackupLocation );
+        return catchup( fromAddress, storeId, desiredBackupLocation );
     }
 
     @Override

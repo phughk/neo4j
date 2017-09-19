@@ -30,7 +30,7 @@ import org.neo4j.commandline.arguments.OptionalNamedArg;
 import org.neo4j.commandline.arguments.common.MandatoryCanonicalPath;
 import org.neo4j.commandline.arguments.common.OptionalCanonicalPath;
 import org.neo4j.consistency.ConsistencyCheckSettings;
-import org.neo4j.consistency.checking.full.CheckConsistencyConfig;
+import org.neo4j.consistency.checking.full.ConsistencyFlags;
 import org.neo4j.helpers.OptionalHostnamePort;
 import org.neo4j.helpers.TimeUtil;
 import org.neo4j.kernel.configuration.Config;
@@ -44,7 +44,8 @@ public class BackupCommandArgumentHandler
     private static final String ARG_DESC_BACKUP_DIRECTORY = "Directory to place backup in.";
 
     private static final String ARG_NAME_BACKUP_NAME = "name";
-    private static final String ARG_DESC_BACKUP_NAME = "Name of backup. If a backup with this name already exists an incremental backup will be attempted.";
+    private static final String ARG_DESC_BACKUP_NAME =
+            "Name of backup. If a backup with this name already exists an incremental backup will be attempted.";
 
     private static final String ARG_NAME_BACKUP_SOURCE = "from";
     private static final String ARG_DESC_BACKUP_SOURCE = "Host and port of Neo4j.";
@@ -56,16 +57,19 @@ public class BackupCommandArgumentHandler
     private static final String ARG_DESC_REPORT_DIRECTORY = "Directory where consistency report will be written.";
 
     private static final String ARG_NAME_ADDITIONAL_CONFIG_DIRECTORY = "additional-config";
-    private static final String ARG_DESC_ADDITIONAL_CONFIG_DIRECTORY = "Configuration file to supply additional configuration in. This argument is DEPRECATED.";
+    private static final String ARG_DESC_ADDITIONAL_CONFIG_DIRECTORY =
+            "Configuration file to supply additional configuration in. This argument is DEPRECATED.";
 
     private static final String ARG_NAME_FALLBACK_FULL = "fallback-to-full";
-    private static final String ARG_DESC_FALLBACK_FULL = "If an incremental backup fails backup will move the old backup to <name>.err.<N> and fallback to a full backup instead.";
+    private static final String ARG_DESC_FALLBACK_FULL =
+            "If an incremental backup fails backup will move the old backup to <name>.err.<N> and fallback to a full backup instead.";
 
     private static final String ARG_NAME_CHECK_CONSISTENCY = "check-consistency";
     private static final String ARG_DESC_CHECK_CONSISTENCY = "If a consistency check should be made.";
 
     private static final String ARG_NAME_CHECK_GRAPH = "cc-graph";
-    private static final String ARG_DESC_CHECK_GRAPH = "Perform consistency checks between nodes, relationships, properties, types and tokens.";
+    private static final String ARG_DESC_CHECK_GRAPH =
+            "Perform consistency checks between nodes, relationships, properties, types and tokens.";
 
     private static final String ARG_NAME_CHECK_INDEXES = "cc-indexes";
     private static final String ARG_DESC_CHECK_INDEXES = "Perform consistency checks on indexes.";
@@ -74,21 +78,34 @@ public class BackupCommandArgumentHandler
     private static final String ARG_DESC_CHECK_LABELS = "Perform consistency checks on the label scan store.";
 
     private static final String ARG_NAME_CHECK_OWNERS = "cc-property-owners";
-    private static final String ARG_DESC_CHECK_OWNERS = "Perform additional consistency checks on property ownership. This check is *very* expensive in time and memory.";
+    private static final String ARG_DESC_CHECK_OWNERS =
+            "Perform additional consistency checks on property ownership. This check is *very* expensive in time and memory.";
 
     private static final Arguments arguments = new Arguments()
-        .withArgument( new MandatoryCanonicalPath( ARG_NAME_BACKUP_DIRECTORY, "backup-path", ARG_DESC_BACKUP_DIRECTORY ) )
-        .withArgument( new MandatoryNamedArg( ARG_NAME_BACKUP_NAME, "graph.db-backup", ARG_DESC_BACKUP_NAME ) )
-        .withArgument( new OptionalNamedArg( ARG_NAME_BACKUP_SOURCE, "address", "localhost:6362", ARG_DESC_BACKUP_SOURCE ) )
-        .withArgument( new OptionalBooleanArg( ARG_NAME_FALLBACK_FULL, true, ARG_DESC_FALLBACK_FULL ) )
-        .withArgument( new OptionalNamedArg( ARG_NAME_TIMEOUT, "timeout", "20m", ARG_DESC_TIMEOUT ) )
-        .withArgument( new OptionalBooleanArg( ARG_NAME_CHECK_CONSISTENCY, true, ARG_DESC_CHECK_CONSISTENCY ) )
-        .withArgument( new OptionalCanonicalPath( ARG_NAME_REPORT_DIRECTORY, "directory", ".", ARG_DESC_REPORT_DIRECTORY ) )
-        .withArgument( new OptionalCanonicalPath( ARG_NAME_ADDITIONAL_CONFIG_DIRECTORY, "config-file-path", "", ARG_DESC_ADDITIONAL_CONFIG_DIRECTORY ) )
-        .withArgument( new OptionalBooleanArg( ARG_NAME_CHECK_GRAPH, true, ARG_DESC_CHECK_GRAPH ) )
-        .withArgument( new OptionalBooleanArg( ARG_NAME_CHECK_INDEXES, true, ARG_DESC_CHECK_INDEXES ) )
-        .withArgument( new OptionalBooleanArg( ARG_NAME_CHECK_LABELS, true, ARG_DESC_CHECK_LABELS ) )
-        .withArgument( new OptionalBooleanArg( ARG_NAME_CHECK_OWNERS, false, ARG_DESC_CHECK_OWNERS ) );
+        .withArgument( new MandatoryCanonicalPath( ARG_NAME_BACKUP_DIRECTORY,
+                "backup-path", ARG_DESC_BACKUP_DIRECTORY ) )
+        .withArgument( new MandatoryNamedArg( ARG_NAME_BACKUP_NAME,
+                "graph.db-backup", ARG_DESC_BACKUP_NAME ) )
+        .withArgument( new OptionalNamedArg( ARG_NAME_BACKUP_SOURCE,
+                "address", "localhost:6362", ARG_DESC_BACKUP_SOURCE ) )
+        .withArgument( new OptionalBooleanArg( ARG_NAME_FALLBACK_FULL,
+                true, ARG_DESC_FALLBACK_FULL ) )
+        .withArgument( new OptionalNamedArg( ARG_NAME_TIMEOUT,
+                "timeout", "20m", ARG_DESC_TIMEOUT ) )
+        .withArgument( new OptionalBooleanArg( ARG_NAME_CHECK_CONSISTENCY,
+                true, ARG_DESC_CHECK_CONSISTENCY ) )
+        .withArgument( new OptionalCanonicalPath( ARG_NAME_REPORT_DIRECTORY,
+                "directory", ".", ARG_DESC_REPORT_DIRECTORY ) )
+        .withArgument( new OptionalCanonicalPath( ARG_NAME_ADDITIONAL_CONFIG_DIRECTORY,
+                "config-file-path", "", ARG_DESC_ADDITIONAL_CONFIG_DIRECTORY ) )
+        .withArgument( new OptionalBooleanArg( ARG_NAME_CHECK_GRAPH,
+                true, ARG_DESC_CHECK_GRAPH ) )
+        .withArgument( new OptionalBooleanArg( ARG_NAME_CHECK_INDEXES,
+                true, ARG_DESC_CHECK_INDEXES ) )
+        .withArgument( new OptionalBooleanArg( ARG_NAME_CHECK_LABELS,
+                true, ARG_DESC_CHECK_LABELS ) )
+        .withArgument( new OptionalBooleanArg( ARG_NAME_CHECK_OWNERS,
+                false, ARG_DESC_CHECK_OWNERS ) );
 
     BackupCommandArgumentHandler()
     {
@@ -99,7 +116,7 @@ public class BackupCommandArgumentHandler
         return arguments;
     }
 
-    CheckConsistencyConfig establishConfigurationOverride( Config config ) throws IncorrectUsage
+    ConsistencyFlags readFlagsFromArgumentsOrDefaultToConfig( Config config ) throws IncorrectUsage
     {
         boolean checkGraph;
         boolean checkIndexes;
@@ -140,7 +157,7 @@ public class BackupCommandArgumentHandler
             {
                 checkPropertyOwners = ConsistencyCheckSettings.consistency_check_property_owners.from( config );
             }
-            return new CheckConsistencyConfig( checkGraph, checkIndexes, checkLabelScanStore, checkPropertyOwners );
+            return new ConsistencyFlags( checkGraph, checkIndexes, checkLabelScanStore, checkPropertyOwners );
         }
         catch ( IllegalArgumentException e )
         {
@@ -153,18 +170,17 @@ public class BackupCommandArgumentHandler
         try
         {
             arguments.parse( args ); // This is stateful, see implementation
-            OptionalHostnamePort address = toOptionalHostnamePortFromRawAddress( arguments.get( ARG_NAME_BACKUP_SOURCE) );
+            OptionalHostnamePort address = toOptionalHostnamePortFromRawAddress( arguments.get( ARG_NAME_BACKUP_SOURCE ) );
             Path folder = arguments.getMandatoryPath( ARG_NAME_BACKUP_DIRECTORY );
             String name = arguments.get( ARG_NAME_BACKUP_NAME );
             boolean fallbackToFull = arguments.getBoolean( ARG_NAME_FALLBACK_FULL );
             boolean doConsistencyCheck = arguments.getBoolean( ARG_NAME_CHECK_CONSISTENCY );
             long timeout = arguments.get( ARG_NAME_TIMEOUT, TimeUtil.parseTimeMillis );
             Optional<Path> additionalConfig = arguments.getOptionalPath( ARG_NAME_ADDITIONAL_CONFIG_DIRECTORY );
-            Path reportDir = arguments.getOptionalPath( ARG_NAME_REPORT_DIRECTORY )
-                    .orElseThrow( () -> new IllegalArgumentException( format("%s must be a path", ARG_NAME_REPORT_DIRECTORY ) ) );
+            Path reportDir = arguments.getOptionalPath( ARG_NAME_REPORT_DIRECTORY ).orElseThrow(
+                    () -> new IllegalArgumentException( format( "%s must be a path", ARG_NAME_REPORT_DIRECTORY ) ) );
 
-            return new OnlineBackupRequiredArguments( address , folder, name, fallbackToFull, doConsistencyCheck, timeout,
-                    additionalConfig, reportDir );
+            return new OnlineBackupRequiredArguments( address, folder, name, fallbackToFull, doConsistencyCheck, timeout, additionalConfig, reportDir );
         }
         catch ( IllegalArgumentException e )
         {

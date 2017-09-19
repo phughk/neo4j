@@ -19,6 +19,7 @@
  */
 package org.neo4j.backup;
 
+import org.hamcrest.CoreMatchers;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -33,12 +34,13 @@ import java.util.Collections;
 import org.neo4j.commandline.admin.CommandFailed;
 import org.neo4j.commandline.admin.OutsideWorld;
 import org.neo4j.consistency.ConsistencyCheckService;
-import org.neo4j.consistency.checking.full.CheckConsistencyConfig;
+import org.neo4j.consistency.checking.full.ConsistencyFlags;
 import org.neo4j.consistency.checking.full.ConsistencyCheckIncompleteException;
 import org.neo4j.helpers.progress.ProgressMonitorFactory;
 import org.neo4j.io.fs.FileSystemAbstraction;
 import org.neo4j.logging.LogProvider;
 
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
@@ -143,7 +145,7 @@ public class BackupFlowTest
 
         // then
         expectedException.expect( CommandFailed.class );
-        expectedException.expectMessage( "Failed to run a backup using the available strategies. Perhaps using the wrong port?" );
+        expectedException.expectMessage( equalTo( "Failed to run a backup using the available strategies." ) );
 
         // when
         subject.performBackup( onlineBackupContext );
@@ -157,7 +159,7 @@ public class BackupFlowTest
         when( requiredArguments.isDoConsistencyCheck() ).thenReturn( true );
         when( consistencyCheckService.runFullConsistencyCheck( any(), any(),
                 eq(progressMonitorFactory), any( LogProvider.class ), any( FileSystemAbstraction.class),
-                eq(false), any(File.class), any( CheckConsistencyConfig.class ) ) )
+                eq(false), any(File.class), any( ConsistencyFlags.class ) ) )
                 .thenReturn( consistencyCheckResult );
         when( consistencyCheckResult.isSuccessful() ).thenReturn( true );
 
@@ -165,7 +167,7 @@ public class BackupFlowTest
         subject.performBackup( onlineBackupContext );
 
         // then
-        verify( consistencyCheckService ).runFullConsistencyCheck( any(), any(), any(), any(), any(), eq( false ), any(), any( CheckConsistencyConfig.class ) );
+        verify( consistencyCheckService ).runFullConsistencyCheck( any(), any(), any(), any(), any(), eq( false ), any(), any( ConsistencyFlags.class ) );
     }
 
     @Test
@@ -180,7 +182,7 @@ public class BackupFlowTest
 
         // then
         verify( consistencyCheckService, never() ).runFullConsistencyCheck( any(), any(), any(), any(), any(), eq( false ), any(),
-                any( CheckConsistencyConfig.class ) );
+                any( ConsistencyFlags.class ) );
     }
 
     @Test
@@ -200,7 +202,7 @@ public class BackupFlowTest
         expectedException.expect( exceptionContainsSuppressedThrowable( firstCause ) );
         expectedException.expect( exceptionContainsSuppressedThrowable( secondCause ) );
         expectedException.expect( CommandFailed.class );
-        expectedException.expectMessage( "Failed to run a backup using the available strategies. Perhaps using the wrong port?" );
+        expectedException.expectMessage( "Failed to run a backup using the available strategies." );
 
         // when
         subject.performBackup( onlineBackupContext );
@@ -214,7 +216,7 @@ public class BackupFlowTest
         when( requiredArguments.isDoConsistencyCheck() ).thenReturn( true );
         when( consistencyCheckService.runFullConsistencyCheck( any(), any(),
                 eq(progressMonitorFactory), any( LogProvider.class ), any( FileSystemAbstraction.class),
-                eq(false), any(File.class), any( CheckConsistencyConfig.class ) ) )
+                eq(false), any(File.class), any( ConsistencyFlags.class ) ) )
                 .thenThrow( new IOException( "Predictable message" ) );
 
         // then
@@ -234,7 +236,7 @@ public class BackupFlowTest
         when( consistencyCheckResult.isSuccessful() ).thenReturn( false );
         when( consistencyCheckService.runFullConsistencyCheck( any(), any(),
                 eq(progressMonitorFactory), any( LogProvider.class ), any( FileSystemAbstraction.class),
-                eq(false), any(File.class), any( CheckConsistencyConfig.class ) ) )
+                eq(false), any(File.class), any( ConsistencyFlags.class ) ) )
                 .thenReturn( consistencyCheckResult );
 
         // then
@@ -253,7 +255,7 @@ public class BackupFlowTest
 
         // then we want a predictable exception (instead of NullPointer)
         expectedException.expect( CommandFailed.class );
-        expectedException.expectMessage( "Failed to run a backup using the available strategies. Perhaps using the wrong port?" );
+        expectedException.expectMessage( "Failed to run a backup using the available strategies." );
 
         // when
         subject.performBackup( onlineBackupContext );

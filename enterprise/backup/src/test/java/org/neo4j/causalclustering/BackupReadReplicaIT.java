@@ -24,18 +24,12 @@ import org.junit.Rule;
 import org.junit.Test;
 
 import java.io.File;
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.util.concurrent.TimeUnit;
 
 import org.neo4j.causalclustering.core.CausalClusteringSettings;
 import org.neo4j.causalclustering.core.CoreGraphDatabase;
 import org.neo4j.causalclustering.discovery.Cluster;
 import org.neo4j.causalclustering.readreplica.ReadReplicaGraphDatabase;
-import org.neo4j.kernel.configuration.Config;
-import org.neo4j.kernel.impl.enterprise.configuration.OnlineBackupSettings;
-import org.neo4j.kernel.configuration.Settings;
 import org.neo4j.kernel.impl.transaction.log.TransactionIdStore;
 import org.neo4j.test.DbRepresentation;
 import org.neo4j.test.causalclustering.ClusterRule;
@@ -46,18 +40,16 @@ import static org.neo4j.causalclustering.BackupCoreIT.backupArguments;
 import static org.neo4j.causalclustering.BackupCoreIT.createSomeData;
 import static org.neo4j.causalclustering.BackupCoreIT.getConfig;
 import static org.neo4j.function.Predicates.awaitEx;
-import static org.neo4j.util.JvmRunner.runBackupToolFromOtherJvmToGetExitCode;
+import static org.neo4j.util.TestHelpers.runBackupToolFromOtherJvmToGetExitCode;
 
 public class BackupReadReplicaIT
 {
-    private int backupPort = findFreePort( 22000, 23000);
 
     @Rule
-    public ClusterRule clusterRule = new ClusterRule( BackupReadReplicaIT.class ).withNumberOfCoreMembers( 3 )
-            .withSharedCoreParam( OnlineBackupSettings.online_backup_enabled, Settings.FALSE )
-            .withNumberOfReadReplicas( 1 )
-            .withSharedReadReplicaParam( OnlineBackupSettings.online_backup_enabled, Settings.TRUE )
-            .withInstanceReadReplicaParam( OnlineBackupSettings.online_backup_server, serverId -> ":" + backupPort );
+    public ClusterRule clusterRule = new ClusterRule( BackupReadReplicaIT.class )
+            .withNumberOfCoreMembers( 3 )
+            .withInstanceCoreParam( CausalClusteringSettings.transaction_listen_address, instance -> ":" + (6000 + 500 + instance ) )
+            .withNumberOfReadReplicas( 1 ); // RR should have default transaction address set by the fixture i.e. port 20,000
 
     private Cluster cluster;
     private File backupPath;
@@ -89,7 +81,7 @@ public class BackupReadReplicaIT
         awaitEx( () -> readReplicasUpToDateAsTheLeader( leader, readReplica ), 1, TimeUnit.MINUTES );
 
         DbRepresentation beforeChange = DbRepresentation.of( readReplica );
-        String backupAddress = this.backupAddress( readReplica );
+        String backupAddress = ":20000";
 
         String[] args = backupArguments( backupAddress, backupPath, "readreplica" );
         assertEquals( 0, runBackupToolFromOtherJvmToGetExitCode( clusterRule.clusterDirectory(), args ) );
@@ -102,40 +94,5 @@ public class BackupReadReplicaIT
                 DbRepresentation.of( new File( backupPath, "readreplica" ), getConfig() );
         assertEquals( beforeChange, backupRepresentation );
         assertNotEquals( backupRepresentation, afterChange );
-    }
-
-    private String backupAddress( ReadReplicaGraphDatabase readReplica )
-    {
-        InetSocketAddress inetSocketAddress = readReplica.getDependencyResolver()
-                .resolveDependency( Config.class ).get( CausalClusteringSettings.transaction_advertised_address )
-                .socketAddress();
-        return inetSocketAddress.getHostName() + ":" + backupPort;
-    }
-
-    private static int findFreePort( int startRange, int endRange )
-    {
-        InetSocketAddress address = null;
-        RuntimeException ex = null;
-        for ( int port = startRange; port <= endRange; port++ )
-        {
-            address = new InetSocketAddress( port );
-
-            try
-            {
-                new ServerSocket( address.getPort(), 100, address.getAddress() ).close();
-                ex = null;
-                break;
-            }
-            catch ( IOException e )
-            {
-                ex = new RuntimeException( e );
-            }
-        }
-        if ( ex != null )
-        {
-            throw ex;
-        }
-        assert address != null;
-        return address.getPort();
     }
 }

@@ -192,8 +192,7 @@ public class BackupTool
             String host = hostnamePort.getHost();
             int port = hostnamePort.getPort();
 
-            BackupOutcome outcome = backupProtocolService.doIncrementalBackupOrFallbackToFull( host, port, to, consistencyCheck,
-                    config, timeout, forensics );
+            BackupOutcome outcome = backupProtocolService.doIncrementalBackupOrFallbackToFull( host, port, to, consistencyCheck, config, timeout, forensics );
             systemOut.println( "Done" );
             return outcome;
         }
