@@ -154,7 +154,7 @@ public class OnlineBackupCommandTest
                             "                                           name already exists an incremental%n" +
                             "                                           backup will be attempted.%n" +
                             "  --from=<address>                         Host and port of Neo4j.%n" +
-                            "                                           [default:localhost:6362]%n" +
+                            "                                           [default:localhost]%n" +
                             "  --fallback-to-full=<true|false>          If an incremental backup fails backup%n" +
                             "                                           will move the old backup to%n" +
                             "                                           <name>.err.<N> and fallback to a full%n" +
