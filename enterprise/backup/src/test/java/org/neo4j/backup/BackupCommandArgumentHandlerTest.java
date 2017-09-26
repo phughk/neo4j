@@ -93,6 +93,14 @@ public class BackupCommandArgumentHandlerTest
     }
 
     @Test
+    public void noAddressAtAllResolvesToLocalhostOnly() throws IncorrectUsage
+    {
+        OnlineBackupRequiredArguments requiredArguments = subject.establishRequiredArguments( requiredArgumentsWithAdditional(  ) );
+        assertEquals("localhost", requiredArguments.getAddress().getHostname().get() );
+        assertFalse( requiredArguments.getAddress().getPort().isPresent() );
+    }
+
+    @Test
     public void backupDirectoryArgumentIsMandatory() throws Exception
     {
         expected.expect( IncorrectUsage.class );

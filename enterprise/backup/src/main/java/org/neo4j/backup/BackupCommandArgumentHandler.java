@@ -87,7 +87,7 @@ public class BackupCommandArgumentHandler
         .withArgument( new MandatoryNamedArg( ARG_NAME_BACKUP_NAME,
                 "graph.db-backup", ARG_DESC_BACKUP_NAME ) )
         .withArgument( new OptionalNamedArg( ARG_NAME_BACKUP_SOURCE,
-                "address", "localhost:6362", ARG_DESC_BACKUP_SOURCE ) )
+                "address", "localhost", ARG_DESC_BACKUP_SOURCE ) )
         .withArgument( new OptionalBooleanArg( ARG_NAME_FALLBACK_FULL,
                 true, ARG_DESC_FALLBACK_FULL ) )
         .withArgument( new OptionalNamedArg( ARG_NAME_TIMEOUT,
