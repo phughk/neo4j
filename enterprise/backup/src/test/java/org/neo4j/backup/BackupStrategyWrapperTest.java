@@ -42,7 +42,7 @@ public class BackupStrategyWrapperTest
 {
     private BackupStrategy backupStrategyImplementation = mock( BackupStrategy.class );
     private OutsideWorld outsideWorld = mock( OutsideWorld.class );
-    private BackupCopyService backupCopyService = mock(BackupCopyService.class);
+    private BackupCopyService backupCopyService = mock( BackupCopyService.class );
 
     private BackupStrategyWrapper subject;
 

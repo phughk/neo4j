@@ -21,11 +21,14 @@ package org.neo4j.backup;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.CopyOption;
+import java.nio.file.StandardCopyOption;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import org.neo4j.com.storecopy.FileMoveAction;
 import org.neo4j.commandline.admin.CommandFailed;
 import org.neo4j.commandline.admin.OutsideWorld;
 
@@ -46,7 +49,7 @@ public class BackupCopyService
     {
         try
         {
-            outsideWorld.fileSystem().renameFile( oldLocation, newLocation );
+            FileMoveAction.copyViaFileSystem( oldLocation, oldLocation.getParentFile() ).move( newLocation, StandardCopyOption.COPY_ATTRIBUTES );
         }
         catch ( IOException e )
         {
