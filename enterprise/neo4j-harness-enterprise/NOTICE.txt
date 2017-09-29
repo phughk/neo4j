@@ -73,10 +73,6 @@ BSD - Scala License
   Scala Library
 
 BSD License
-  ASM Analysis
-  ASM Core
-  ASM Tree
-  ASM Util
   JLine
   Scala Compiler
 
