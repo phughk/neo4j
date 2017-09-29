@@ -20,6 +20,14 @@
 package org.neo4j.backup;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 
 import org.neo4j.OnlineBackupCommandSection;
@@ -27,6 +35,7 @@ import org.neo4j.commandline.admin.AdminCommand;
 import org.neo4j.commandline.admin.AdminCommandSection;
 import org.neo4j.commandline.admin.OutsideWorld;
 import org.neo4j.commandline.arguments.Arguments;
+import org.neo4j.helpers.Service;
 import org.neo4j.kernel.monitoring.Monitors;
 import org.neo4j.logging.LogProvider;
 import org.neo4j.logging.NullLogProvider;
@@ -88,8 +97,25 @@ public class OnlineBackupCommandProvider extends AdminCommand.Provider
 
         return new OnlineBackupCommand( outsideWorld,
                 onlineBackupContextLoader,
-                new BackupSupportingClassesFactory( backupModuleResolveAtRuntime ),
+                findBackupSupportingClassesFactory( backupModuleResolveAtRuntime ),
                 new BackupFlowFactory( backupModuleResolveAtRuntime )
         );
+    }
+
+    private static BackupSupportingClassesFactory findBackupSupportingClassesFactory( BackupModuleResolveAtRuntime backupModuleResolveAtRuntime )
+    {
+        List<BackupSupportingClassesFactory> factoriesInClassPath = findFactoryProviders()
+                .stream()
+                .map( provider -> provider.getInstance( backupModuleResolveAtRuntime ) )
+                .collect( Collectors.toList() );
+        factoriesInClassPath.sort( Comparator.comparingInt( BackupSupportingClassesFactory::getPriority ) );
+        return factoriesInClassPath.get( 0 );
+    }
+
+    private static List<BackupSupportingClassesFactoryProvider> findFactoryProviders()
+    {
+        List<BackupSupportingClassesFactoryProvider> providers = new ArrayList<>(  );
+        Service.load( BackupSupportingClassesFactoryProvider.class ).spliterator().forEachRemaining( providers::add );
+        return providers;
     }
 }

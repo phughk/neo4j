@@ -44,7 +44,7 @@ import org.neo4j.ssl.SslPolicy;
  * By having this factory we can wait until the configuration has been loaded and the provide all the classes required for backups that are dependant on the
  * config.
  */
-class BackupSupportingClassesFactory
+abstract class BackupSupportingClassesFactory
 {
     private static final long INACTIVITY_TIMEOUT_MILLIS = 500;
 
@@ -84,7 +84,7 @@ class BackupSupportingClassesFactory
 
     private BackupDelegator backupDelegatorFormConfig( PageCache pageCache, Config config )
     {
-        PipelineHandlerAppender pipelineHandlerAppender = new NoOpPipelineHandlerAppender( config, logProvider );
+        PipelineHandlerAppender pipelineHandlerAppender = getPipelineHandler( config, logProvider );
         CatchUpClient catchUpClient = new CatchUpClient( logProvider, clock, INACTIVITY_TIMEOUT_MILLIS, monitors, pipelineHandlerAppender );
         TxPullClient txPullClient = new TxPullClient( catchUpClient, monitors );
         StoreCopyClient storeCopyClient = new StoreCopyClient( catchUpClient, logProvider );
@@ -100,9 +100,8 @@ class BackupSupportingClassesFactory
         return new BackupDelegator( remoteStore, catchUpClient, storeCopyClient, new ClearIdService( new IdGeneratorWrapper() ) );
     }
 
-    private static SslPolicy establishSslPolicyFromConfiguration( Config config, LogProvider logProvider )
-    {
-        SslPolicyLoader sslPolicyLoader = SslPolicyLoader.create( config, logProvider );
-        return sslPolicyLoader.getPolicy( config.get( CausalClusteringSettings.ssl_policy ) );
-    }
+    abstract PipelineHandlerAppender getPipelineHandler( Config config, LogProvider logProvider );
+
+    abstract int getPriority();
+
 }
