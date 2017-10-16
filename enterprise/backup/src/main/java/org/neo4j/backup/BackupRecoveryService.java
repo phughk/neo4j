@@ -20,20 +20,79 @@
 package org.neo4j.backup;
 
 import java.io.File;
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.stream.IntStream;
 
 import org.neo4j.io.pagecache.PageCache;
+import org.neo4j.kernel.configuration.BoltConnector;
 import org.neo4j.kernel.configuration.Config;
+import org.neo4j.kernel.configuration.HttpConnector;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 
+import static java.lang.String.format;
 import static org.neo4j.backup.BackupProtocolService.startTemporaryDb;
 
 public class BackupRecoveryService
 {
+    private static final int MIN_PORT = 15000;
+    private static final int MAX_PORT = 40000;
+
+    private final Iterator<Integer> availablePortStream;
+
+    public BackupRecoveryService()
+    {
+        availablePortStream = createAvailablePortStream();
+    }
+
     public void recoverWithDatabase( File targetDirectory, PageCache pageCache, Config config )
     {
-        Map<String,String> configParams = config.getRaw();
+        Map<String,String> configParams = allocateRandomAvailablePorts( config );
         GraphDatabaseAPI targetDb = startTemporaryDb( targetDirectory, pageCache, configParams );
         targetDb.shutdown();
+    }
+
+    Map<String,String> allocateRandomAvailablePorts( Config config )
+    {
+        Map<String,String> configParams = config.getRaw();
+        configParams.put( new BoltConnector().listen_address.name(), ":" + findRandomFreePort() );
+        return configParams;
+    }
+
+    private int findRandomFreePort()
+    {
+        try
+        {
+            return availablePortStream.next();
+        }
+        catch ( NoSuchElementException e )
+        {
+            throw new IllegalStateException( format( "No more available ports between %d and %d", MIN_PORT, MAX_PORT ) );
+        }
+    }
+
+    private static Iterator<Integer> createAvailablePortStream()
+    {
+        return IntStream
+                .range( MIN_PORT, MAX_PORT )
+                .filter( BackupRecoveryService::isPortAvailable )
+                .iterator();
+    }
+
+    private static boolean isPortAvailable( int port )
+    {
+        try
+        {
+            new ServerSocket( port ).close();
+            return true;
+        }
+        catch ( IOException e )
+        {
+            e.printStackTrace();
+            return false;
+        }
     }
 }
