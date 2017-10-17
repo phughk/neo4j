@@ -43,6 +43,10 @@ import org.neo4j.causalclustering.core.consensus.roles.Role;
 import org.neo4j.causalclustering.discovery.Cluster;
 import org.neo4j.causalclustering.discovery.CoreClusterMember;
 import org.neo4j.causalclustering.helpers.CausalClusteringTestHelpers;
+import org.neo4j.commandline.admin.CommandFailed;
+import org.neo4j.commandline.admin.IncorrectUsage;
+import org.neo4j.commandline.admin.OutsideWorld;
+import org.neo4j.commandline.admin.RealOutsideWorld;
 import org.neo4j.graphdb.factory.GraphDatabaseSettings;
 import org.neo4j.kernel.configuration.Config;
 import org.neo4j.kernel.configuration.Settings;
@@ -66,10 +70,8 @@ public class OnlineBackupCommandCcIT
     public final TestDirectory testDirectory = TestDirectory.testDirectory();
 
     @Rule
-    public ClusterRule clusterRule = new ClusterRule( getClass() )
-            .withNumberOfCoreMembers( 3 )
-            .withNumberOfReadReplicas( 3 )
-            .withSharedCoreParam( CausalClusteringSettings.cluster_topology_refresh, "5s" );
+    public ClusterRule clusterRule = new ClusterRule( getClass() ).withNumberOfCoreMembers( 3 ).withNumberOfReadReplicas( 3 ).withSharedCoreParam(
+            CausalClusteringSettings.cluster_topology_refresh, "5s" );
 
     @Rule
     public final RuleChain ruleChain = RuleChain.outerRule( SuppressOutput.suppressAll() ).around( clusterRule );
@@ -107,27 +109,15 @@ public class OnlineBackupCommandCcIT
 
         Cluster cluster = startCluster( recordFormat );
         String customAddress = CausalClusteringTestHelpers.transactionAddress( clusterLeader( cluster ).database() );
-        assertEquals(
-                1,
-                runBackupToolFromOtherJvmToGetExitCode( "--cc-report-dir=" + backupDir,
-                        "--backup-dir=" + backupDir,
-                        "--name=defaultport" ) );
-        assertEquals(
-                0,
-                runBackupToolFromOtherJvmToGetExitCode( "--from", customAddress,
-                        "--cc-report-dir=" + backupDir,
-                        "--backup-dir=" + backupDir,
-                        "--name=defaultport" ) );
-        assertEquals( DbRepresentation.of( clusterDatabase( cluster ) ), getBackupDbRepresentation( "defaultport" ) );
+        assertEquals( 1, runBackupToolFromOtherJvmToGetExitCode( "--cc-report-dir=" + backupDir, "--backup-dir=" + backupDir, "--name=defaultport" ) );
+        assertEquals( 0, runBackupToolFromOtherJvmToGetExitCode( "--from", customAddress, "--cc-report-dir=" + backupDir, "--backup-dir=" + backupDir,
+                "--name=defaultport" ) );
+        assertEquals( DbRepresentation.of( clusterDatabase( cluster ) ), getBackupDbRepresentation( "defaultport", backupDir ) );
 
         createSomeData( cluster );
-        assertEquals(
-                0,
-                runBackupToolFromOtherJvmToGetExitCode( "--from", customAddress,
-                        "--cc-report-dir=" + backupDir,
-                        "--backup-dir=" + backupDir,
-                        "--name=defaultport" ) );
-        assertEquals( DbRepresentation.of( clusterDatabase( cluster ) ), getBackupDbRepresentation( "defaultport" ) );
+        assertEquals( 0, runBackupToolFromOtherJvmToGetExitCode( "--from", customAddress, "--cc-report-dir=" + backupDir, "--backup-dir=" + backupDir,
+                "--name=defaultport" ) );
+        assertEquals( DbRepresentation.of( clusterDatabase( cluster ) ), getBackupDbRepresentation( "defaultport", backupDir ) );
     }
 
     @Test
@@ -137,12 +127,8 @@ public class OnlineBackupCommandCcIT
 
         Cluster cluster = startCluster( recordFormat );
         String ip = TestHelpers.backupAddressHa( clusterLeader( cluster ).database() );
-        assertEquals(
-                1,
-                runBackupToolFromOtherJvmToGetExitCode( "--from", ip,
-                        "--cc-report-dir=" + backupDir,
-                        "--backup-dir=" + backupDir,
-                        "--name=defaultport" ) );
+        assertEquals( 1,
+                runBackupToolFromOtherJvmToGetExitCode( "--from", ip, "--cc-report-dir=" + backupDir, "--backup-dir=" + backupDir, "--name=defaultport" ) );
     }
 
     @Test
@@ -156,13 +142,12 @@ public class OnlineBackupCommandCcIT
 
         // and the database is being populated
         AtomicBoolean populateDatabaseFlag = new AtomicBoolean( true );
-        new Thread( () -> repeatedlyPopulateDatabase(  cluster, populateDatabaseFlag ) )
-                .start(); // populate db with number properties etc.
+        new Thread( () -> repeatedlyPopulateDatabase( cluster, populateDatabaseFlag ) ).start(); // populate db with number properties etc.
         oneOffShutdownTasks.add( () -> populateDatabaseFlag.set( false ) ); // kill thread
 
         // then backup is successful
         String address = TestHelpers.backupAddressCc( clusterLeader( cluster ).database() );
-        assertEquals( 0, runBackupToolFromOtherJvmToGetExitCode( "--from", address, "--cc-report-dir=" + backupDir, "--backup-dir=" + backupDir,
+        assertEquals( 0, runBackupToolFromSameJvmToGetExitCode( "--from", address, "--cc-report-dir=" + backupDir, "--backup-dir=" + backupDir,
                 "--name=defaultport" ) );
     }
 
@@ -174,19 +159,17 @@ public class OnlineBackupCommandCcIT
         }
     }
 
-    private static CoreGraphDatabase clusterDatabase( Cluster cluster )
+    public static CoreGraphDatabase clusterDatabase( Cluster cluster )
     {
         return clusterLeader( cluster ).database();
     }
 
-    private Cluster startCluster( String recordFormat )
-            throws Exception
+    private Cluster startCluster( String recordFormat ) throws Exception
     {
-        ClusterRule clusterRule = this.clusterRule
-                .withSharedCoreParam( GraphDatabaseSettings.record_format, recordFormat )
-                .withSharedReadReplicaParam( GraphDatabaseSettings.record_format, recordFormat );
+        ClusterRule clusterRule = this.clusterRule.withSharedCoreParam( GraphDatabaseSettings.record_format, recordFormat ).withSharedReadReplicaParam(
+                GraphDatabaseSettings.record_format, recordFormat );
         Cluster cluster = clusterRule.startCluster();
-        createSomeData(  cluster );
+        createSomeData( cluster );
         return cluster;
     }
 
@@ -208,7 +191,7 @@ public class OnlineBackupCommandCcIT
         return cluster.getDbWithRole( Role.LEADER );
     }
 
-    private DbRepresentation getBackupDbRepresentation( String name )
+    public static DbRepresentation getBackupDbRepresentation( String name, File backupDir )
     {
         Config config = Config.defaults();
         config.augment( OnlineBackupSettings.online_backup_enabled, Settings.FALSE );
@@ -218,5 +201,25 @@ public class OnlineBackupCommandCcIT
     private int runBackupToolFromOtherJvmToGetExitCode( String... args ) throws Exception
     {
         return TestHelpers.runBackupToolFromOtherJvmToGetExitCode( testDirectory.absolutePath(), args );
+    }
+
+    private int runBackupToolFromSameJvmToGetExitCode( String... args )
+    {
+        File neo4jHome = testDirectory.directory();
+        File configDir = new File( neo4jHome, "config" );
+        OutsideWorld outsideWorld = new RealOutsideWorld();
+        try
+        {
+            new OnlineBackupCommandProvider().create( neo4jHome.toPath(), configDir.toPath(), outsideWorld ).execute( args );
+            return 0;
+        }
+        catch ( IncorrectUsage incorrectUsage )
+        {
+            return 1;
+        }
+        catch ( CommandFailed commandFailed )
+        {
+            return 2;
+        }
     }
 }
