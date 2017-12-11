@@ -19,6 +19,8 @@
  */
 package org.neo4j.causalclustering.messaging;
 
+import io.netty.util.concurrent.Future;
+
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -147,13 +149,14 @@ public class TestNetwork<T>
         }
 
         @Override
-        public void send( T destination, Message message, boolean block )
+        public Future<Void> send( T destination, Message message, boolean block )
         {
             if ( block )
             {
                 throw new UnsupportedOperationException( "Not implemented" );
             }
             doSend( destination, message, System.currentTimeMillis() );
+            return null;
         }
 
         private void doSend( T destination, Message message, long now )

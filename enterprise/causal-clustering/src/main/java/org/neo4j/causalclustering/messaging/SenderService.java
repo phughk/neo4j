@@ -28,6 +28,7 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.concurrent.FailedFuture;
 import io.netty.util.concurrent.Future;
 
 import org.neo4j.helpers.AdvertisedSocketAddress;
@@ -64,7 +65,7 @@ public class SenderService extends LifecycleAdapter implements Outbound<Advertis
     }
 
     @Override
-    public void send( AdvertisedSocketAddress to, Message message, boolean block )
+    public Future<Void> send( AdvertisedSocketAddress to, Message message, boolean block )
     {
         Future<Void> future;
         serviceLock.readLock().lock();
@@ -72,7 +73,7 @@ public class SenderService extends LifecycleAdapter implements Outbound<Advertis
         {
             if ( !senderServiceRunning )
             {
-                return;
+                return new FailedFuture<>( null, new IllegalStateException( "" ) );
             }
 
             future = channel( to ).send( message );
@@ -86,6 +87,7 @@ public class SenderService extends LifecycleAdapter implements Outbound<Advertis
         {
             future.awaitUninterruptibly();
         }
+        return future;
     }
 
     private NonBlockingChannel channel( AdvertisedSocketAddress to )

@@ -19,6 +19,8 @@
  */
 package org.neo4j.causalclustering.messaging;
 
+import io.netty.util.concurrent.Future;
+
 /**
  * A best effort service for delivery of messages to members. No guarantees are made about any of the methods
  * in terms of eventual delivery. The only non trivial promises is that no messages get duplicated and nothing gets
@@ -30,13 +32,12 @@ public interface Outbound<MEMBER, MESSAGE extends Message>
 {
     /**
      * Asynchronous, best effort delivery to destination.
-     *
-     * @param to destination
+     *  @param to destination
      * @param message The message to send
      */
-    default void send( MEMBER to, MESSAGE message )
+    default Future<Void> send( MEMBER to, MESSAGE message )
     {
-        send( to, message, false );
+        return send( to, message, false );
     }
 
     /**
@@ -44,10 +45,9 @@ public interface Outbound<MEMBER, MESSAGE extends Message>
      * <p>
      * Blocking waits at least until the I/O operation
      * completes, but it might still have failed.
-     *
-     * @param to destination
+     *  @param to destination
      * @param message the message to send
      * @param block whether to block until I/O completion
      */
-    void send( MEMBER to, MESSAGE message, boolean block );
+    Future<Void> send( MEMBER to, MESSAGE message, boolean block );
 }

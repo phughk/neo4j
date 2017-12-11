@@ -19,6 +19,9 @@
  */
 package org.neo4j.causalclustering.messaging;
 
+import io.netty.util.concurrent.FailedFuture;
+import io.netty.util.concurrent.Future;
+
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -53,23 +56,24 @@ public class RaftOutbound implements Outbound<MemberId, RaftMessage>
     }
 
     @Override
-    public void send( MemberId to, RaftMessage message, boolean block )
+    public Future<Void> send( MemberId to, RaftMessage message, boolean block )
     {
         Optional<ClusterId> clusterId = clusterIdentity.get();
         if ( !clusterId.isPresent() )
         {
             log.warn( "Attempting to send a message before bound to a cluster" );
-            return;
+            return new FailedFuture<>( null, new IllegalStateException( "Attempting to send a message before bound to a cluster" ) );
         }
 
         Optional<CoreServerInfo> coreServerInfo = coreTopologyService.coreServers().find( to );
         if ( coreServerInfo.isPresent() )
         {
-            outbound.send( coreServerInfo.get().getRaftServer(), new ClusterIdAwareMessage( clusterId.get(), message ), block );
+            return outbound.send( coreServerInfo.get().getRaftServer(), new ClusterIdAwareMessage( clusterId.get(), message ), block );
         }
         else
         {
             unknownAddressMonitor.logAttemptToSendToMemberWithNoKnownAddress( to );
+            return new FailedFuture<>( null, new IllegalArgumentException( "Unknown address" ) );
         }
     }
 }

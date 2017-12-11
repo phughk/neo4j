@@ -78,6 +78,7 @@ public class CoreMetrics extends LifecycleAdapter
     private final TxRetryMetric txRetryMetric = new TxRetryMetric();
     private final MessageQueueMonitorMetric messageQueueMetric = new MessageQueueMonitorMetric();
     private final InFlightCacheMetric inFlightCacheMetric = new InFlightCacheMetric();
+    private final RaftLogShipperMetrics raftLogShipperMetrics = new RaftLogShipperMetrics();
 
     public CoreMetrics( Monitors monitors, MetricRegistry registry, Supplier<CoreMetaData> coreMetaData )
     {
@@ -97,6 +98,7 @@ public class CoreMetrics extends LifecycleAdapter
         monitors.addMonitorListener( txRetryMetric );
         monitors.addMonitorListener( messageQueueMetric );
         monitors.addMonitorListener( inFlightCacheMetric );
+        monitors.addMonitorListener( raftLogShipperMetrics );
 
         registry.register( COMMIT_INDEX, (Gauge<Long>) raftLogCommitIndexMetric::commitIndex );
         registry.register( APPEND_INDEX, (Gauge<Long>) raftLogAppendIndexMetric::appendIndex );
@@ -140,6 +142,7 @@ public class CoreMetrics extends LifecycleAdapter
         monitors.removeMonitorListener( txRetryMetric );
         monitors.removeMonitorListener( messageQueueMetric );
         monitors.removeMonitorListener( inFlightCacheMetric );
+        monitors.removeMonitorListener( raftLogShipperMetrics );
     }
 
     private class LeaderGauge implements Gauge<Integer>

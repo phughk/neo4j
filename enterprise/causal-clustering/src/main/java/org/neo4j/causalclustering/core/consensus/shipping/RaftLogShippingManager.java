@@ -27,20 +27,22 @@ import java.util.Map;
 
 import org.neo4j.causalclustering.core.consensus.LeaderContext;
 import org.neo4j.causalclustering.core.consensus.RaftMessages;
-import org.neo4j.causalclustering.core.consensus.log.cache.InFlightCache;
 import org.neo4j.causalclustering.core.consensus.log.ReadableRaftLog;
+import org.neo4j.causalclustering.core.consensus.log.cache.InFlightCache;
+import org.neo4j.causalclustering.core.consensus.log.monitoring.RaftLogShipperMonitoring;
 import org.neo4j.causalclustering.core.consensus.membership.RaftMembership;
 import org.neo4j.causalclustering.core.consensus.outcome.ShipCommand;
 import org.neo4j.causalclustering.identity.MemberId;
 import org.neo4j.causalclustering.messaging.Outbound;
 import org.neo4j.kernel.lifecycle.LifecycleAdapter;
+import org.neo4j.kernel.monitoring.Monitors;
 import org.neo4j.logging.LogProvider;
 
 import static java.lang.String.format;
 
 public class RaftLogShippingManager extends LifecycleAdapter implements RaftMembership.Listener
 {
-    private final Outbound<MemberId, RaftMessages.RaftMessage> outbound;
+    private final Outbound<MemberId,RaftMessages.RaftMessage> outbound;
     private final LogProvider logProvider;
     private final ReadableRaftLog raftLog;
     private final Clock clock;
@@ -51,6 +53,7 @@ public class RaftLogShippingManager extends LifecycleAdapter implements RaftMemb
     private final int catchupBatchSize;
     private final int maxAllowedShippingLag;
     private final InFlightCache inFlightCache;
+    private final Monitors monitors;
 
     private Map<MemberId,RaftLogShipper> logShippers = new HashMap<>();
     private LeaderContext lastLeaderContext;
@@ -59,10 +62,10 @@ public class RaftLogShippingManager extends LifecycleAdapter implements RaftMemb
     private boolean stopped;
 
     public RaftLogShippingManager( Outbound<MemberId,RaftMessages.RaftMessage> outbound, LogProvider logProvider,
-                                   ReadableRaftLog raftLog,
-                                   Clock clock, MemberId myself, RaftMembership membership, long retryTimeMillis,
-                                   int catchupBatchSize, int maxAllowedShippingLag,
-                                   InFlightCache inFlightCache )
+            ReadableRaftLog raftLog,
+            Clock clock, MemberId myself, RaftMembership membership, long retryTimeMillis,
+            int catchupBatchSize, int maxAllowedShippingLag,
+            InFlightCache inFlightCache, Monitors monitors )
     {
         this.outbound = outbound;
         this.logProvider = logProvider;
@@ -74,7 +77,7 @@ public class RaftLogShippingManager extends LifecycleAdapter implements RaftMemb
         this.catchupBatchSize = catchupBatchSize;
         this.maxAllowedShippingLag = maxAllowedShippingLag;
         this.inFlightCache = inFlightCache;
-        membership.registerListener( this );
+        this.monitors = monitors;
     }
 
     /**
@@ -118,11 +121,13 @@ public class RaftLogShippingManager extends LifecycleAdapter implements RaftMemb
     private void ensureLogShipperRunning( MemberId member, LeaderContext leaderContext )
     {
         RaftLogShipper logShipper = logShippers.get( member );
+        monitors.addMonitorListener( new RLSLogMonitorListener( logProvider ) );
         if ( logShipper == null && !member.equals( myself ) )
         {
             logShipper = new RaftLogShipper( outbound, logProvider, raftLog, clock, myself, member,
                     leaderContext.term, leaderContext.commitIndex, retryTimeMillis, catchupBatchSize,
-                    maxAllowedShippingLag, inFlightCache );
+                    maxAllowedShippingLag, inFlightCache,
+                    monitors.newMonitor( RaftLogShipperMonitoring.class ) );
 
             logShippers.put( member, logShipper );
 
@@ -130,7 +135,8 @@ public class RaftLogShippingManager extends LifecycleAdapter implements RaftMemb
         }
     }
 
-    public synchronized void handleCommands( Iterable<ShipCommand> shipCommands, LeaderContext leaderContext ) throws IOException
+    public synchronized void handleCommands( Iterable<ShipCommand> shipCommands, LeaderContext leaderContext )
+            throws IOException
     {
         for ( ShipCommand shipCommand : shipCommands )
         {

@@ -39,6 +39,7 @@ import org.neo4j.causalclustering.core.consensus.log.InMemoryRaftLog;
 import org.neo4j.causalclustering.core.consensus.log.RaftLog;
 import org.neo4j.causalclustering.core.consensus.log.RaftLogEntry;
 
+import org.neo4j.causalclustering.core.consensus.log.monitoring.RaftLogShipperMonitoring;
 import org.neo4j.causalclustering.identity.MemberId;
 import org.neo4j.helpers.collection.Iterables;
 import org.neo4j.logging.Log;
@@ -108,7 +109,7 @@ public class RaftLogShipperTest
     private void startLogShipper()
     {
         logShipper = new RaftLogShipper( outbound, logProvider, raftLog, clock, leader, follower, leaderTerm, leaderCommit,
-                        retryTimeMillis, catchupBatchSize, maxAllowedShippingLag, new ConsecutiveInFlightCache() );
+                        retryTimeMillis, catchupBatchSize, maxAllowedShippingLag, new ConsecutiveInFlightCache(), mock( RaftLogShipperMonitoring.class) );
         logShipper.start();
     }
 
@@ -336,6 +337,18 @@ public class RaftLogShipperTest
         assertTrue( outbound.hasAnyEntriesTo( follower ) );
         assertThat( outbound.sentTo( follower ),
                 hasMessage( new RaftMessages.LogCompactionInfo( leader, 0, 2 ) ) );
+    }
+
+    @Test
+    public void largeQueueDoesntFailTimeout()
+    {
+        // given we have many messages in the queue
+
+        // and the timeout between messages is 5s
+
+        // and the duration between broadcast is 1s
+
+        // then a timeout doesn't occur, because 1s<5s
     }
 
     @Test

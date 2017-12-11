@@ -19,6 +19,8 @@
  */
 package org.neo4j.causalclustering.core.consensus;
 
+import io.netty.util.concurrent.Future;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -86,12 +88,13 @@ public class DirectNetworking
         }
 
         @Override
-        public synchronized void send( MemberId to, final RaftMessages.RaftMessage message, boolean block )
+        public synchronized Future<Void> send( MemberId to, final RaftMessages.RaftMessage message, boolean block )
         {
             if ( canDeliver( to ) )
             {
                 messageQueues.get( to ).add( message );
             }
+            return null;
         }
 
         private boolean canDeliver( MemberId to )

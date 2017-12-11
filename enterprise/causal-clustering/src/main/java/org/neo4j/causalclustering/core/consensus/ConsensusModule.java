@@ -137,7 +137,7 @@ public class ConsensusModule
         RaftLogShippingManager logShipping =
                 new RaftLogShippingManager( outbound, logProvider, raftLog, systemClock(), myself,
                         raftMembershipManager, leaderAvailabilityTimers.getElectionTimeout(), config.get( catchup_batch_size ),
-                        config.get( log_shipping_max_lag ), inFlightCache );
+                        config.get( log_shipping_max_lag ), inFlightCache, platformModule.monitors );
 
         boolean supportsPreVoting = config.get( CausalClusteringSettings.enable_pre_voting );
 

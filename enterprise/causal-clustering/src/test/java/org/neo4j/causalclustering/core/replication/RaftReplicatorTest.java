@@ -306,10 +306,11 @@ public class RaftReplicatorTest
         private int count;
 
         @Override
-        public void send( MemberId to, MESSAGE message, boolean block )
+        public io.netty.util.concurrent.Future<Void> send( MemberId to, MESSAGE message, boolean block )
         {
             this.lastTo = to;
             this.count++;
+            return null;
         }
 
     }

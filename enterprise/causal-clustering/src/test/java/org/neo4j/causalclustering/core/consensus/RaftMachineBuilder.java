@@ -19,14 +19,16 @@
  */
 package org.neo4j.causalclustering.core.consensus;
 
+import io.netty.util.concurrent.FailedFuture;
+
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
 
-import org.neo4j.causalclustering.core.consensus.log.cache.ConsecutiveInFlightCache;
-import org.neo4j.causalclustering.core.consensus.log.cache.InFlightCache;
 import org.neo4j.causalclustering.core.consensus.log.InMemoryRaftLog;
 import org.neo4j.causalclustering.core.consensus.log.RaftLog;
+import org.neo4j.causalclustering.core.consensus.log.cache.ConsecutiveInFlightCache;
+import org.neo4j.causalclustering.core.consensus.log.cache.InFlightCache;
 import org.neo4j.causalclustering.core.consensus.membership.RaftGroup;
 import org.neo4j.causalclustering.core.consensus.membership.RaftMembershipManager;
 import org.neo4j.causalclustering.core.consensus.membership.RaftMembershipState;
@@ -64,7 +66,8 @@ public class RaftMachineBuilder
             getInstance() );
 
     private Inbound<RaftMessages.RaftMessage> inbound = handler -> {};
-    private Outbound<MemberId, RaftMessages.RaftMessage> outbound = ( to, message, block ) -> {};
+    private Outbound<MemberId,RaftMessages.RaftMessage> outbound =
+            ( to, message, block ) -> new FailedFuture<>( null, new IllegalArgumentException( "crap" ) );
 
     private LogProvider logProvider = NullLogProvider.getInstance();
     private Clock clock = Clocks.systemClock();
@@ -96,18 +99,23 @@ public class RaftMachineBuilder
     {
         termState.update( term );
         LeaderAvailabilityTimers
-                leaderAvailabilityTimers = new LeaderAvailabilityTimers( Duration.ofMillis( electionTimeout ), Duration.ofMillis( heartbeatInterval ), clock,
+                leaderAvailabilityTimers = new LeaderAvailabilityTimers( Duration.ofMillis( electionTimeout ),
+                Duration.ofMillis( heartbeatInterval ), clock,
                 renewableTimeoutService, logProvider );
         SendToMyself leaderOnlyReplicator = new SendToMyself( member, outbound );
         RaftMembershipManager membershipManager = new RaftMembershipManager( leaderOnlyReplicator,
-                memberSetBuilder, raftLog, logProvider, expectedClusterSize, leaderAvailabilityTimers.getElectionTimeout(), clock, catchupTimeout,
+                memberSetBuilder, raftLog, logProvider, expectedClusterSize,
+                leaderAvailabilityTimers.getElectionTimeout(), clock, catchupTimeout,
                 raftMembership );
         membershipManager.setRecoverFromIndexSupplier( () -> 0 );
         RaftLogShippingManager logShipping =
                 new RaftLogShippingManager( outbound, logProvider, raftLog, shippingClock, member, membershipManager,
-                        retryTimeMillis, catchupBatchSize, maxAllowedShippingLag, inFlightCache );
-        RaftMachine raft = new RaftMachine( member, termStateStorage, voteStateStorage, raftLog, leaderAvailabilityTimers, outbound, logProvider,
-                membershipManager, logShipping, inFlightCache, false, false, monitors );
+                        retryTimeMillis, catchupBatchSize, maxAllowedShippingLag, inFlightCache,
+                        monitors );
+        RaftMachine raft =
+                new RaftMachine( member, termStateStorage, voteStateStorage, raftLog, leaderAvailabilityTimers,
+                        outbound, logProvider,
+                        membershipManager, logShipping, inFlightCache, false, false, monitors );
         inbound.registerHandler( incomingMessage ->
         {
             try
@@ -151,7 +159,7 @@ public class RaftMachineBuilder
         return this;
     }
 
-    public RaftMachineBuilder outbound( Outbound<MemberId, RaftMessages.RaftMessage> outbound )
+    public RaftMachineBuilder outbound( Outbound<MemberId,RaftMessages.RaftMessage> outbound )
     {
         this.outbound = outbound;
         return this;

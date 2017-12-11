@@ -17,31 +17,12 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.neo4j.causalclustering.messaging;
-
-import io.netty.util.concurrent.Future;
+package org.neo4j.causalclustering.core.consensus.log.monitoring;
 
 import org.neo4j.causalclustering.core.consensus.RaftMessages;
-import org.neo4j.causalclustering.logging.MessageLogger;
+import org.neo4j.causalclustering.core.consensus.shipping.RaftLogShipper;
 
-public class LoggingOutbound<MEMBER, MESSAGE extends RaftMessages.RaftMessage> implements Outbound<MEMBER, MESSAGE>
+public interface RaftLogShipperMonitoring
 {
-    private final Outbound<MEMBER,MESSAGE> outbound;
-    private final MEMBER me;
-    private final MessageLogger<MEMBER> messageLogger;
-
-    public LoggingOutbound( Outbound<MEMBER,MESSAGE> outbound, MEMBER me, MessageLogger<MEMBER> messageLogger )
-    {
-        this.outbound = outbound;
-        this.me = me;
-        this.messageLogger = messageLogger;
-    }
-
-    @Override
-    public Future<Void> send( MEMBER to, MESSAGE message, boolean block )
-    {
-        messageLogger.logOutbound( me, message, to );
-        return outbound.send( to, message );
-    }
-
+    void register( RaftLogShipper.InstanceInfo instanceInfo );
 }
