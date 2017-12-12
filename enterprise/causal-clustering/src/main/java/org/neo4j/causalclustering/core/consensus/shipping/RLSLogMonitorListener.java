@@ -33,7 +33,7 @@ public class RLSLogMonitorListener implements RaftLogShipperMonitoring
     }
 
     @Override
-    public void register( RaftLogShipper.InstanceInfo instanceInfo )
+    public void register( InstanceInfo instanceInfo )
     {
         rlsLogger.info( String.format( "Log for: %s", instanceInfo.id() ) );
         rlsLogger.info( String.format( "End of batch to %s started %s ended %s lasted %s\n", instanceInfo.id(),

@@ -20,12 +20,12 @@
 package org.neo4j.metrics.source.causalclustering;
 
 import org.neo4j.causalclustering.core.consensus.log.monitoring.RaftLogShipperMonitoring;
-import org.neo4j.causalclustering.core.consensus.shipping.RaftLogShipper;
+import org.neo4j.causalclustering.core.consensus.shipping.InstanceInfo;
 
 public class RaftLogShipperMetrics implements RaftLogShipperMonitoring
 {
     @Override
-    public void register( RaftLogShipper.InstanceInfo instanceInfo )
+    public void register( InstanceInfo instanceInfo )
     {
 
     }

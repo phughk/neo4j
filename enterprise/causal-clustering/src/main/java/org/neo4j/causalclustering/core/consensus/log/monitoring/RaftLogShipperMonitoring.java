@@ -19,10 +19,9 @@
  */
 package org.neo4j.causalclustering.core.consensus.log.monitoring;
 
-import org.neo4j.causalclustering.core.consensus.RaftMessages;
-import org.neo4j.causalclustering.core.consensus.shipping.RaftLogShipper;
+import org.neo4j.causalclustering.core.consensus.shipping.InstanceInfo;
 
 public interface RaftLogShipperMonitoring
 {
-    void register( RaftLogShipper.InstanceInfo instanceInfo );
+    void register( InstanceInfo instanceInfo );
 }
