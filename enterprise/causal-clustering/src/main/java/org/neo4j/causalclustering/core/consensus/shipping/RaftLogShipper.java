@@ -78,6 +78,7 @@ public class RaftLogShipper
     private static final long MIN_INDEX = 1L;
     // we never ship entry zero, which must be bootstrapped or received as part of a snapshot
     private final int TIMER_INACTIVE = 0;
+    private static final long MAX_BATCH_BYTE_SIZE = 1_073_741_824;
 
     enum Mode
     {
@@ -502,24 +503,36 @@ public class RaftLogShipper
             }
 
             instanceInfo.startLogEnry( LocalDateTime.now() );
+            int offset = 0;
+            long aggregatedSize = 0;
             boolean entryMissing = false;
             try ( InFlightLogEntryReader logEntrySupplier = new InFlightLogEntryReader( raftLog, inFlightCache,
                     false ) )
             {
-                for ( int offset = 0; offset < batchSize; offset++ )
+                for ( ; offset < batchSize; offset++ )
                 {
-                    entries[offset] = logEntrySupplier.get( startIndex + offset );
-                    if ( entries[offset] == null )
+                    RaftLogEntry raftLogEntry = logEntrySupplier.get( startIndex + offset );
+                    if ( raftLogEntry == null )
                     {
                         entryMissing = true;
                         break;
                     }
-                    if ( entries[offset].term() > leaderContext.term )
+                    if ( raftLogEntry.term() > leaderContext.term )
                     {
                         log.warn( "%s aborting send. Not leader anymore? %s, entryTerm=%d",
-                                statusAsString(), leaderContext, entries[offset].term() );
+                                statusAsString(), leaderContext, raftLogEntry.term() );
                         return;
                     }
+                    if ( raftLogEntry.content().hasSize() )
+                    {
+                        aggregatedSize += raftLogEntry.content().size();
+                        if ( offset != 0 && aggregatedSize > MAX_BATCH_BYTE_SIZE )
+                        {
+                            offset--;
+                            break;
+                        }
+                    }
+                    entries[offset] = raftLogEntry;
                 }
             }
             instanceInfo.endLogEntry( LocalDateTime.now() );
@@ -549,6 +562,10 @@ public class RaftLogShipper
                         }
                 ).sum();
                 instanceInfo.entreisInfo( entries.length, sum );
+                if ( offset < batchSize )
+                {
+                    entries = Arrays.copyOf( entries, offset );
+                }
                 RaftMessages.AppendEntries.Request appendRequest = new RaftMessages.AppendEntries.Request(
                         leader, leaderContext.term, prevLogIndex, prevLogTerm, entries, leaderContext.commitIndex );
                 instanceInfo.sendToFollower( appendRequest, LocalDateTime.now() );
