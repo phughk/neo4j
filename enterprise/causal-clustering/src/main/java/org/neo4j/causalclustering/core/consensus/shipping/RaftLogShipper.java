@@ -39,7 +39,6 @@ import org.neo4j.logging.Log;
 import org.neo4j.logging.LogProvider;
 
 import static java.lang.Long.max;
-import static java.lang.Long.min;
 import static java.lang.String.format;
 import static org.neo4j.causalclustering.core.consensus.schedule.RenewableTimeoutService.RenewableTimeout;
 import static org.neo4j.causalclustering.core.consensus.shipping.RaftLogShipper.Mode.CATCHUP;
@@ -73,7 +72,6 @@ import static org.neo4j.causalclustering.core.consensus.shipping.RaftLogShipper.
  */
 public class RaftLogShipper
 {
-    private static final long MIN_INDEX = 1L;
     // we never ship entry zero, which must be bootstrapped or received as part of a snapshot
     private final int TIMER_INACTIVE = 0;
     private static final long MAX_BATCH_BYTE_SIZE = 1_073_741_824;
@@ -106,7 +104,6 @@ public class RaftLogShipper
         RESEND
     }
 
-    private final Outbound<MemberId,RaftMessages.RaftMessage> outbound;
     private final LogProvider logProvider;
     private final Log log;
     private final ReadableRaftLog raftLog;
@@ -115,17 +112,15 @@ public class RaftLogShipper
     private final MemberId leader;
     private final long retryTimeMillis;
     private final RaftLogShipperMonitoring raftLogShipperMonitoring;
-    private final int catchupBatchSize;
-    private final int maxAllowedShippingLag;
     private final InFlightCache inFlightCache;
+    private final RaftLogTransmitter raftLogTransmitter;
+    private final RaftLogTracker raftLogTracker;
 
     private DelayedRenewableTimeoutService timeoutService;
     private RenewableTimeout timeout;
 
     // state
     private long timeoutAbsoluteMillis;
-    private long lastSentIndex;
-    private long matchIndex = -1;
     private LeaderContext lastLeaderContext;
     private Mode mode = Mode.MISMATCH;
 
@@ -135,9 +130,6 @@ public class RaftLogShipper
             int catchupBatchSize, int maxAllowedShippingLag, InFlightCache inFlightCache,
             RaftLogShipperMonitoring raftLogShipperMonitoring )
     {
-        this.outbound = outbound;
-        this.catchupBatchSize = catchupBatchSize;
-        this.maxAllowedShippingLag = maxAllowedShippingLag;
         this.logProvider = logProvider;
         this.log = logProvider.getLog( getClass() );
         this.raftLog = raftLog;
@@ -148,6 +140,8 @@ public class RaftLogShipper
         this.raftLogShipperMonitoring = raftLogShipperMonitoring;
         this.lastLeaderContext = new LeaderContext( leaderTerm, leaderCommit );
         this.inFlightCache = inFlightCache;
+        this.raftLogTransmitter = new RaftLogTransmitter( outbound );
+        this.raftLogTracker = new RaftLogTracker( maxAllowedShippingLag, catchupBatchSize );
     }
 
     public Object identity()
@@ -185,7 +179,7 @@ public class RaftLogShipper
         switch ( mode )
         {
         case MISMATCH:
-            long logIndex = max( min( lastSentIndex - 1, lastRemoteAppendIndex ), MIN_INDEX );
+            long logIndex = raftLogTracker.getLogIndex( lastRemoteAppendIndex );
             sendEmptyAppendWithMetaData( logIndex, leaderContext );
             break;
         case PIPELINE:
@@ -193,7 +187,7 @@ public class RaftLogShipper
             log.info( "%s: mismatch in mode %s from follower %s, moving to MISMATCH mode",
                     statusAsString(), mode, follower );
             mode = Mode.MISMATCH;
-            sendEmptyAppendWithMetaData( lastSentIndex, leaderContext );
+            sendEmptyAppendWithMetaData( raftLogTracker.getLastSentIndex(), leaderContext );
             break;
 
         default:
@@ -205,12 +199,8 @@ public class RaftLogShipper
 
     public synchronized void onMatch( long newMatchIndex, LeaderContext leaderContext )
     {
-        boolean progress = newMatchIndex > matchIndex;
-        if ( newMatchIndex > matchIndex )
-        {
-            matchIndex = newMatchIndex;
-        }
-        else
+        boolean progress = raftLogTracker.updateMatchIndex( newMatchIndex );
+        if ( !progress )
         {
             log.warn( "%s: match index not progressing. This should be transient.", statusAsString() );
         }
@@ -218,38 +208,14 @@ public class RaftLogShipper
         switch ( mode )
         {
         case MISMATCH:
-            if ( sendNextBatchAfterMatch( leaderContext ) )
-            {
-                log.info( "%s: caught up after mismatch, moving to PIPELINE mode", statusAsString() );
-                mode = PIPELINE;
-            }
-            else
-            {
-                log.info( "%s: starting catch up after mismatch, moving to CATCHUP mode", statusAsString() );
-                mode = Mode.CATCHUP;
-            }
+            establishWhichStateIsCorrectSinceNoLongerInCorrectState( leaderContext );
             break;
         case CATCHUP:
-            if ( matchIndex >= lastSentIndex )
-            {
-                if ( sendNextBatchAfterMatch( leaderContext ) )
-                {
-                    log.info( "%s: caught up, moving to PIPELINE mode", statusAsString() );
-                    mode = PIPELINE;
-                }
-            }
+            establishIfStoppedCatchingUp( leaderContext );
             break;
         case PIPELINE:
-            if ( matchIndex == lastSentIndex )
-            {
-                abortTimeout();
-            }
-            else if ( progress )
-            {
-                scheduleTimeout( retryTimeMillis );
-            }
+            measureEffectivenessOfPassiveCatchup( progress );
             break;
-
         default:
             throw new IllegalStateException( "Unknown mode: " + mode );
         }
@@ -257,40 +223,83 @@ public class RaftLogShipper
         lastLeaderContext = leaderContext;
     }
 
+    private void measureEffectivenessOfPassiveCatchup( boolean progress )
+    {
+        if ( raftLogTracker.lastSentIndexIsTheOneWeAreMatchingAgainst() )
+        {
+            abortTimeout();
+        }
+        else if ( progress )
+        {
+            scheduleTimeout( retryTimeMillis );
+        }
+    }
+
+    private void establishIfStoppedCatchingUp( LeaderContext leaderContext )
+    {
+        if ( raftLogTracker.lastIndexHasCaughtUp() )
+        {
+            if ( sendNextBatchAfterMatch( leaderContext ) )
+            {
+                log.info( "%s: caught up, moving to PIPELINE mode", statusAsString() );
+                mode = PIPELINE;
+            }
+        }
+    }
+
+    private void establishWhichStateIsCorrectSinceNoLongerInCorrectState( LeaderContext leaderContext )
+    {
+        if ( sendNextBatchAfterMatch( leaderContext ) )
+        {
+            log.info( "%s: caught up after mismatch, moving to PIPELINE mode", statusAsString() );
+            mode = PIPELINE;
+        }
+        else
+        {
+            log.info( "%s: starting catch up after mismatch, moving to CATCHUP mode", statusAsString() );
+            mode = Mode.CATCHUP;
+        }
+    }
+
     public synchronized void onNewEntries( long prevLogIndex, long prevLogTerm, RaftLogEntry[] newLogEntries,
             LeaderContext leaderContext )
     {
         if ( mode == Mode.PIPELINE )
         {
-            while ( lastSentIndex <= prevLogIndex )
-            {
-                if ( prevLogIndex - matchIndex <= maxAllowedShippingLag )
-                {
-                    // all sending functions update lastSentIndex
-                    sendNewEntries( prevLogIndex, prevLogTerm, newLogEntries, leaderContext );
-                }
-                else
-                {
-                    /* The timer is still set at this point. Either we will send the next batch
-                     * as soon as the follower has caught up with the last pipelined entry,
-                     * or when we timeout and resend. */
-                    log.info( "%s: follower has fallen behind (target prevLogIndex was %d, maxAllowedShippingLag " +
-                              "is %d), moving to CATCHUP mode", statusAsString(), prevLogIndex,
-                            maxAllowedShippingLag );
-                    mode = Mode.CATCHUP;
-                    break;
-                }
-            }
+            updateEverythingThatNeedsUpdating( prevLogIndex, prevLogTerm, newLogEntries, leaderContext );
         }
 
         lastLeaderContext = leaderContext;
+    }
+
+    private void updateEverythingThatNeedsUpdating( long prevLogIndex, long prevLogTerm, RaftLogEntry[] newLogEntries, LeaderContext leaderContext )
+    {
+        while ( raftLogTracker.lastSentIndexStillNotCaughtUp( prevLogIndex ) )
+        {
+            if ( raftLogTracker.isShippingLag( prevLogIndex ) )
+            {
+                // all sending functions update lastSentIndex
+                sendNewEntries( prevLogIndex, prevLogTerm, newLogEntries, leaderContext );
+            }
+            else
+            {
+                    /* The timer is still set at this point. Either we will send the next batch
+                     * as soon as the follower has caught up with the last pipelined entry,
+                     * or when we timeout and resend. */
+                log.info( "%s: follower has fallen behind (target prevLogIndex was %d, maxAllowedShippingLag " +
+                                "is %d), moving to CATCHUP mode", statusAsString(), prevLogIndex,
+                        raftLogTracker.getMaxAllowedShippingLag() );
+                mode = Mode.CATCHUP;
+                break;
+            }
+        }
     }
 
     public synchronized void onCommitUpdate( LeaderContext leaderContext )
     {
         if ( mode == Mode.PIPELINE )
         {
-            sendCommitUpdate( leaderContext );
+            raftLogTransmitter.sendCommitUpdate( follower, leader, leaderContext );
         }
 
         lastLeaderContext = leaderContext;
@@ -342,7 +351,7 @@ public class RaftLogShipper
 
         if ( lastLeaderContext != null )
         {
-            sendEmptyAppendWithMetaData( lastSentIndex, lastLeaderContext );
+            sendEmptyAppendWithMetaData( raftLogTracker.getLastSentIndex(), lastLeaderContext );
         }
     }
 
@@ -389,12 +398,12 @@ public class RaftLogShipper
         instanceInfo.start( LocalDateTime.now() );
         long lastIndex = raftLog.appendIndex();
 
-        if ( lastIndex > matchIndex )
+        if ( raftLogTracker.lastIndexGreaterThanMatching( lastIndex ) )
         {
-            long endIndex = min( lastIndex, matchIndex + catchupBatchSize );
+            long endIndex = raftLogTracker.endIndexFromBatch( lastIndex );
 
 //            scheduleTimeout( retryTimeMillis );
-            sendRange( matchIndex + 1, endIndex, leaderContext, instanceInfo );
+            sendRange( raftLogTracker.getMatchIndex() + 1, endIndex, leaderContext, instanceInfo );
             instanceInfo.end( LocalDateTime.now() );
             raftLogShipperMonitoring.register( instanceInfo );
             return endIndex == lastIndex;
@@ -412,32 +421,13 @@ public class RaftLogShipper
         return follower.getUuid().toString();
     }
 
-    private void sendCommitUpdate( LeaderContext leaderContext )
-    {
-        /*
-         * This is a commit update. That means that we just received enough success responses to an append
-         * request to allow us to send a commit. By Raft invariants, this means that the term for the committed
-         * entry is the current term.
-         */
-        RaftMessages.Heartbeat appendRequest =
-                new RaftMessages.Heartbeat( leader, leaderContext.term, leaderContext.commitIndex,
-                        leaderContext.term );
-
-        outbound.send( follower, appendRequest );
-    }
-
     private void sendNewEntries( long prevLogIndex, long prevLogTerm, RaftLogEntry[] newEntries,
             LeaderContext leaderContext )
     {
         scheduleTimeout( retryTimeMillis );
 
-        lastSentIndex = prevLogIndex + 1;
-
-        RaftMessages.AppendEntries.Request appendRequest = new RaftMessages.AppendEntries.Request(
-                leader, leaderContext.term, prevLogIndex, prevLogTerm, newEntries, leaderContext.commitIndex
-        );
-
-        outbound.send( follower, appendRequest );
+        raftLogTracker.setLastSentIndex( prevLogIndex + 1 );
+        raftLogTransmitter.sendNewEntries( leader, leaderContext, prevLogIndex, prevLogTerm, newEntries, follower );
     }
 
     /**
@@ -450,7 +440,7 @@ public class RaftLogShipper
         scheduleTimeout( retryTimeMillis );
 
         logIndex = max( raftLog.prevIndex() + 1, logIndex );
-        lastSentIndex = logIndex;
+        raftLogTracker.setLastSentIndex( logIndex );
 
         try
         {
@@ -471,10 +461,7 @@ public class RaftLogShipper
                 return;
             }
 
-            RaftMessages.AppendEntries.Request appendRequest = new RaftMessages.AppendEntries.Request(
-                    leader, leaderContext.term, prevLogIndex, prevLogTerm, RaftLogEntry.empty,
-                    leaderContext.commitIndex );
-            outbound.send( follower, appendRequest );
+            raftLogTransmitter.sendEmptyAppendWithMetaData( follower, leader, leaderContext, prevLogIndex, prevLogTerm );
         }
         catch ( IOException e )
         {
@@ -482,15 +469,14 @@ public class RaftLogShipper
         }
     }
 
-    private void sendRange( long startIndex, long endIndex, LeaderContext leaderContext,
-            InstanceInfo instanceInfo )
+    private void sendRange( long startIndex, long endIndex, LeaderContext leaderContext, InstanceInfo instanceInfo )
     {
         if ( startIndex > endIndex )
         {
             return;
         }
 
-        lastSentIndex = endIndex;
+        raftLogTracker.setLastSentIndex( endIndex );
 
         try
         {
@@ -509,37 +495,8 @@ public class RaftLogShipper
 
             instanceInfo.startLogEnry( LocalDateTime.now() );
             int offset = 0;
-            long aggregatedSize = 0;
             boolean entryMissing = false;
-            try ( InFlightLogEntryReader logEntrySupplier = new InFlightLogEntryReader( raftLog, inFlightCache,
-                    false ) )
-            {
-                for ( ; offset < batchSize; offset++ )
-                {
-                    RaftLogEntry raftLogEntry = logEntrySupplier.get( startIndex + offset );
-                    if ( raftLogEntry == null )
-                    {
-                        entryMissing = true;
-                        break;
-                    }
-                    if ( raftLogEntry.term() > leaderContext.term )
-                    {
-                        log.warn( "%s aborting send. Not leader anymore? %s, entryTerm=%d",
-                                statusAsString(), leaderContext, raftLogEntry.term() );
-                        return;
-                    }
-                    if ( raftLogEntry.content().hasSize() )
-                    {
-                        aggregatedSize += raftLogEntry.content().size();
-                        if ( offset != 0 && aggregatedSize > MAX_BATCH_BYTE_SIZE )
-                        {
-                            offset--;
-                            break;
-                        }
-                    }
-                    entries[offset] = raftLogEntry;
-                }
-            }
+            osnidf();
             instanceInfo.endLogEntry( LocalDateTime.now() );
 
             if ( entryMissing || doesNotExistInLog( prevLogIndex, prevLogTerm ) )
@@ -571,19 +528,59 @@ public class RaftLogShipper
                         }
                 ).sum();
                 instanceInfo.entreisInfo( entries.length, sum );
-                RaftMessages.AppendEntries.Request appendRequest = new RaftMessages.AppendEntries.Request(
-                        leader, leaderContext.term, prevLogIndex, prevLogTerm, entries, leaderContext.commitIndex );
-                instanceInfo.sendToFollower( appendRequest, LocalDateTime.now() );
-                outbound.send( follower, appendRequest ).addListener( future ->
-                {
-                    log.info( "Sent complete at: " + LocalDateTime.now() );
-                    scheduleTimeout( timeoutAbsoluteMillis );
-                } );
+
+                raftLogTransmitter.sendRange( leader, leaderContext, prevLogIndex, prevLogTerm, instanceInfo, follower, log,
+                        () -> scheduleTimeout( timeoutAbsoluteMillis ), entries );
             }
         }
         catch ( IOException e )
         {
             log.warn( statusAsString() + " exception during batch send", e );
+        }
+    }
+
+    private Result osnidf(int batchSize, int startIndex, RaftLogEntry[] entries, LeaderContext leaderContext ) throws IOException
+    {
+        int offset = 0;
+        try ( InFlightLogEntryReader logEntrySupplier = new InFlightLogEntryReader( raftLog, inFlightCache, false ) )
+        {
+            long aggregatedSize = 0;
+            for ( ; offset < batchSize; offset++ )
+            {
+                RaftLogEntry raftLogEntry = logEntrySupplier.get( startIndex + offset );
+                if ( raftLogEntry == null )
+                {
+                    return new Result( offset, true );
+                }
+                if ( raftLogEntry.term() > leaderContext.term )
+                {
+                    log.warn( "%s aborting send. Not leader anymore? %s, entryTerm=%d", statusAsString(), leaderContext, raftLogEntry.term() );
+                    return new Result( offset, false );
+                }
+                if ( raftLogEntry.content().hasSize() )
+                {
+                    aggregatedSize += raftLogEntry.content().size();
+                    if ( offset != 0 && aggregatedSize > MAX_BATCH_BYTE_SIZE )
+                    {
+                        offset--;
+                        break;
+                    }
+                }
+                entries[offset] = raftLogEntry;
+            }
+        }
+        return new Result( offset, false );
+    }
+
+    private static class Result
+    {
+        public final boolean entryMissing;
+        public final int offset;
+
+        public Result( int offset, boolean entryMissing )
+        {
+            this.offset = offset;
+            this.entryMissing = entryMissing;
         }
     }
 
@@ -597,13 +594,12 @@ public class RaftLogShipper
         log.warn( "Sending log compaction info. Log pruned? Status=%s, LeaderContext=%s",
                 statusAsString(), leaderContext );
 
-        outbound.send( follower, new RaftMessages.LogCompactionInfo(
-                leader, leaderContext.term, raftLog.prevIndex() ) );
+        raftLogTransmitter.sendLogCompactionInfo( follower, leader, leaderContext, raftLog.prevIndex()  );
     }
 
     private String statusAsString()
     {
-        return format( "%s[matchIndex: %d, lastSentIndex: %d, localAppendIndex: %d, mode: %s]", follower, matchIndex,
-                lastSentIndex, raftLog.appendIndex(), mode );
+        return format( "%s[matchIndex: %d, lastSentIndex: %d, localAppendIndex: %d, mode: %s]", follower, raftLogTracker.getMatchIndex(),
+                raftLogTracker.getLastSentIndex(), raftLog.appendIndex(), mode );
     }
 }

@@ -19,8 +19,10 @@
  */
 package org.neo4j.causalclustering.core.consensus;
 
+import io.netty.util.concurrent.DefaultEventExecutor;
 import io.netty.util.concurrent.FailedFuture;
 import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.SucceededFuture;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,7 +49,8 @@ public class OutboundMessageCollector implements Outbound<MemberId, RaftMessages
     public Future<Void> send( MemberId to, RaftMessages.RaftMessage message, boolean block )
     {
         raftMessages( to ).add( message );
-        return new FailedFuture<>( null, new IllegalArgumentException( "CRAP" ) );
+//        return new FailedFuture<>( null, new IllegalArgumentException( "CRAP" ) );
+        return new SucceededFuture<>( new DefaultEventExecutor(), null );
     }
 
     private List<RaftMessages.RaftMessage> raftMessages( MemberId to )
