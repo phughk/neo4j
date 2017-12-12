@@ -551,6 +551,10 @@ public class RaftLogShipper
             }
             else
             {
+                if ( offset < batchSize )
+                {
+                    entries = Arrays.copyOf( entries, offset );
+                }
                 long sum = Arrays.stream( entries ).mapToLong(
                         value ->
                         {
@@ -562,10 +566,6 @@ public class RaftLogShipper
                         }
                 ).sum();
                 instanceInfo.entreisInfo( entries.length, sum );
-                if ( offset < batchSize )
-                {
-                    entries = Arrays.copyOf( entries, offset );
-                }
                 RaftMessages.AppendEntries.Request appendRequest = new RaftMessages.AppendEntries.Request(
                         leader, leaderContext.term, prevLogIndex, prevLogTerm, entries, leaderContext.commitIndex );
                 instanceInfo.sendToFollower( appendRequest, LocalDateTime.now() );
