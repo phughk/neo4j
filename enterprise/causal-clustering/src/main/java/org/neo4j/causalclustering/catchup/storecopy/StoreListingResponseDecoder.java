@@ -19,14 +19,20 @@
  */
 package org.neo4j.causalclustering.catchup.storecopy;
 
-import org.neo4j.causalclustering.catchup.RequestMessageType;
-import org.neo4j.causalclustering.messaging.CatchUpRequest;
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.ByteToMessageDecoder;
 
-public class GetStoreIdRequest implements CatchUpRequest // TODO find usages or delete
+import java.util.List;
+
+import org.neo4j.causalclustering.messaging.NetworkReadableClosableChannelNetty4;
+
+public class StoreListingResponseDecoder extends ByteToMessageDecoder
 {
+
     @Override
-    public RequestMessageType messageType()
+    protected void decode( ChannelHandlerContext channelHandlerContext, ByteBuf byteBuf, List<Object> list ) throws Exception
     {
-        return RequestMessageType.STORE_ID;
+        list.add( new StoreListingResponse.StoreListingMarshal().unmarshal( new NetworkReadableClosableChannelNetty4( byteBuf ) ) );
     }
 }

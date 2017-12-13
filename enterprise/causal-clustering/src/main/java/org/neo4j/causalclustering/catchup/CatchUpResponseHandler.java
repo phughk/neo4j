@@ -25,6 +25,8 @@ import org.neo4j.causalclustering.catchup.storecopy.FileChunk;
 import org.neo4j.causalclustering.catchup.storecopy.FileHeader;
 import org.neo4j.causalclustering.catchup.storecopy.GetStoreIdResponse;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFinishedResponse;
+import org.neo4j.causalclustering.catchup.storecopy.StoreListingRequest;
+import org.neo4j.causalclustering.catchup.storecopy.StoreListingResponse;
 import org.neo4j.causalclustering.catchup.tx.TxPullResponse;
 import org.neo4j.causalclustering.catchup.tx.TxStreamFinishedResponse;
 import org.neo4j.causalclustering.core.state.snapshot.CoreSnapshot;
@@ -48,4 +50,6 @@ public interface CatchUpResponseHandler
     void onGetStoreIdResponse( GetStoreIdResponse response );
 
     void onCoreSnapshot( CoreSnapshot coreSnapshot );
+
+    void onStoreListingResponse( StoreListingResponse storeListingRequest );
 }

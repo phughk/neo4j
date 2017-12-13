@@ -29,6 +29,7 @@ public enum RequestMessageType implements Message
     STORE( (byte) 2 ),
     CORE_SNAPSHOT( (byte) 3 ),
     STORE_ID( (byte) 4 ),
+    GET_STORE_LISTING( (byte) 5 ), // Used for getting list
     UNKNOWN( (byte) 404 );
 
     private byte messageType;

@@ -55,6 +55,7 @@ public class RemoteStoreTest
         // given
         StoreId storeId = new StoreId( 1, 2, 3, 4 );
         StoreCopyClient storeCopyClient = mock( StoreCopyClient.class );
+        when( storeCopyClient.copyStoreFiles( any(), any(), any() ) ).thenReturn( new StoreCopyClient.StoreCopyResult( 13L, true ) );
         TxPullClient txPullClient = mock( TxPullClient.class );
         when( txPullClient.pullTransactions( any(), any(), anyLong(), any() ) )
                 .thenReturn( new TxPullRequestResult( SUCCESS_END_OF_STREAM, 13 ) );
@@ -82,7 +83,7 @@ public class RemoteStoreTest
 
         StoreCopyClient storeCopyClient = mock( StoreCopyClient.class );
         when( storeCopyClient.copyStoreFiles( eq( localhost ), eq( wantedStoreId ), any( StoreFileStreams.class ) ) )
-                .thenReturn( lastFlushedTxId );
+                .thenReturn( new StoreCopyClient.StoreCopyResult( lastFlushedTxId, true ) );
 
         TxPullClient txPullClient = mock( TxPullClient.class );
         when( txPullClient.pullTransactions( eq( localhost ), eq( wantedStoreId ), anyLong(), isNull() ) )
@@ -108,6 +109,7 @@ public class RemoteStoreTest
         // given
         StoreId storeId = new StoreId( 1, 2, 3, 4 );
         StoreCopyClient storeCopyClient = mock( StoreCopyClient.class );
+        when( storeCopyClient.copyStoreFiles( any(), any(), any() ) ).thenReturn( new StoreCopyClient.StoreCopyResult( 14L, false ) );
         TxPullClient txPullClient = mock( TxPullClient.class );
         TransactionLogCatchUpWriter writer = mock( TransactionLogCatchUpWriter.class );
 

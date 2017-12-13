@@ -154,7 +154,7 @@ public class RemoteStore
             long lastFlushedTxId;
             try ( StreamToDisk storeFileStreams = new StreamToDisk( destDir, fs, pageCache, monitors ) )
             {
-                lastFlushedTxId = storeCopyClient.copyStoreFiles( from, expectedStoreId, storeFileStreams );
+                lastFlushedTxId = storeCopyClient.copyStoreFiles( from, expectedStoreId, storeFileStreams ).lastTransctionId;
             }
 
             log.info( "Store files need to be recovered starting from: %d", lastFlushedTxId );

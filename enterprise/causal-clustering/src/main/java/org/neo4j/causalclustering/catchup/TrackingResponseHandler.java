@@ -28,6 +28,7 @@ import org.neo4j.causalclustering.catchup.storecopy.FileChunk;
 import org.neo4j.causalclustering.catchup.storecopy.FileHeader;
 import org.neo4j.causalclustering.catchup.storecopy.GetStoreIdResponse;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFinishedResponse;
+import org.neo4j.causalclustering.catchup.storecopy.StoreListingResponse;
 import org.neo4j.causalclustering.catchup.tx.TxPullResponse;
 import org.neo4j.causalclustering.catchup.tx.TxStreamFinishedResponse;
 import org.neo4j.causalclustering.core.state.snapshot.CoreSnapshot;
@@ -123,6 +124,12 @@ class TrackingResponseHandler implements CatchUpResponseHandler
             recordLastResponse();
             delegate.onCoreSnapshot( requestOutcomeSignal, coreSnapshot );
         }
+    }
+
+    @Override
+    public void onStoreListingResponse( StoreListingResponse storeListingRequest )
+    {
+        throw new RuntimeException( "Unimplemented" );
     }
 
     Optional<Long> lastResponseTime()

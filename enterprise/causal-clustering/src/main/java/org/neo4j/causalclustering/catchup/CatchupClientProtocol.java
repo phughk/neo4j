@@ -35,6 +35,7 @@ public class CatchupClientProtocol extends Protocol<CatchupClientProtocol.State>
         STORE_COPY_FINISHED,
         TX_STREAM_FINISHED,
         FILE_HEADER,
+        STORE_LISTING_RESPONSE,
         FILE_CONTENTS
     }
 }

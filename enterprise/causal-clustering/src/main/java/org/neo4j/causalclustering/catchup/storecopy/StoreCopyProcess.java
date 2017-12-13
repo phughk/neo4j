@@ -21,6 +21,7 @@ package org.neo4j.causalclustering.catchup.storecopy;
 
 import java.io.IOException;
 
+import org.neo4j.causalclustering.catchup.CatchUpClientException;
 import org.neo4j.causalclustering.identity.StoreId;
 import org.neo4j.helpers.AdvertisedSocketAddress;
 import org.neo4j.io.fs.FileSystemAbstraction;

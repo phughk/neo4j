@@ -41,11 +41,24 @@ public class StoreCopyClient
         log = logProvider.getLog( getClass() );
     }
 
-    public long copyStoreFiles( AdvertisedSocketAddress from, StoreId expectedStoreId, StoreFileStreams storeFileStreams ) throws StoreCopyFailedException
+    public static class StoreCopyResult
+    {
+        public final long lastTransctionId;
+        public final boolean wasSuccessful;
+
+        public StoreCopyResult( Long lastTransctionId, Boolean wasSuccessful )
+        {
+            this.lastTransctionId = lastTransctionId;
+            this.wasSuccessful = wasSuccessful;
+        }
+    }
+
+    public StoreCopyResult copyStoreFiles( AdvertisedSocketAddress from, StoreId expectedStoreId, StoreFileStreams storeFileStreams )
+            throws StoreCopyFailedException
     {
         try
         {
-            return catchUpClient.makeBlockingRequest( from, new GetStoreRequest( expectedStoreId ), new CatchUpResponseAdaptor<Long>()
+            CatchUpResponseAdaptor<Long> copyHandler = new CatchUpResponseAdaptor<Long>()
             {
                 private String destination;
                 private int requiredAlignment;
@@ -68,9 +81,12 @@ public class StoreCopyClient
                 public void onFileStreamingComplete( CompletableFuture<Long> signal, StoreCopyFinishedResponse response )
                 {
                     log.info( "Finished streaming %s", destination );
+                    // TODO what if storeID mistmatch? In this case it closes connnection, says it failed to other node, and returns as if nothing happened
                     signal.complete( response.lastCommittedTxBeforeStoreCopy() );
                 }
-            } );
+            };
+            catchUpClient.makeBlockingRequest( from, new StoreListingRequest( expectedStoreId ), new StoreListingResponseAdaptor() );
+            return new StoreCopyResult( catchUpClient.makeBlockingRequest( from, new GetStoreRequest( expectedStoreId ), copyHandler ), true );
         }
         catch ( CatchUpClientException e )
         {

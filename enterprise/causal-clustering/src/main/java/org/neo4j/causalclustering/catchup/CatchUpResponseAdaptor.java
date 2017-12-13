@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package org.neo4j.causalclustering.catchup;
+package org.neo4j.causalclustering.catchup; // TODO separate refactoring PR on separating client/server/shared code
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
@@ -26,51 +26,67 @@ import org.neo4j.causalclustering.catchup.storecopy.FileChunk;
 import org.neo4j.causalclustering.catchup.storecopy.FileHeader;
 import org.neo4j.causalclustering.catchup.storecopy.GetStoreIdResponse;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFinishedResponse;
+import org.neo4j.causalclustering.catchup.storecopy.StoreListingResponse;
 import org.neo4j.causalclustering.catchup.tx.TxPullResponse;
 import org.neo4j.causalclustering.catchup.tx.TxStreamFinishedResponse;
 import org.neo4j.causalclustering.core.state.snapshot.CoreSnapshot;
 
+/**
+ * This Adaptor is used for event driven handling of responses from server (client side).
+ * @param <T>
+ */
 public class CatchUpResponseAdaptor<T> implements CatchUpResponseCallback<T>
 {
     @Override
     public void onFileHeader( CompletableFuture<T> signal, FileHeader response )
     {
-        signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
+        fail( signal, response );
     }
 
     @Override
     public boolean onFileContent( CompletableFuture<T> signal, FileChunk response ) throws IOException
     {
-        signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
+        fail( signal, response );
         return false;
     }
 
     @Override
     public void onFileStreamingComplete( CompletableFuture<T> signal, StoreCopyFinishedResponse response )
     {
-        signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
+        fail( signal, response );
     }
 
     @Override
     public void onTxPullResponse( CompletableFuture<T> signal, TxPullResponse response )
     {
-        signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
+        fail( signal, response );
     }
 
     @Override
     public void onTxStreamFinishedResponse( CompletableFuture<T> signal, TxStreamFinishedResponse response )
     {
-        signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
+        fail( signal, response );
     }
 
     @Override
     public void onGetStoreIdResponse( CompletableFuture<T> signal, GetStoreIdResponse response )
     {
-        signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
+        fail( signal, response );
     }
 
     @Override
     public void onCoreSnapshot( CompletableFuture<T> signal, CoreSnapshot response )
+    {
+        fail( signal, response );
+    }
+
+    @Override
+    public void onStoreListingResponse( CompletableFuture<T> signal, StoreListingResponse response )
+    {
+        fail( signal, response );
+    }
+
+    private <U> void fail( CompletableFuture<T> signal, U response )
     {
         signal.completeExceptionally( new CatchUpProtocolViolationException( "Unexpected response: %s", response ) );
     }

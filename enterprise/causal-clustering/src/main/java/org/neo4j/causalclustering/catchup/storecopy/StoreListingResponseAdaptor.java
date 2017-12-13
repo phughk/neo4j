@@ -19,14 +19,23 @@
  */
 package org.neo4j.causalclustering.catchup.storecopy;
 
-import org.neo4j.causalclustering.catchup.RequestMessageType;
-import org.neo4j.causalclustering.messaging.CatchUpRequest;
+import io.netty.channel.SimpleChannelInboundHandler;
 
-public class GetStoreIdRequest implements CatchUpRequest // TODO find usages or delete
+import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
+
+import org.neo4j.causalclustering.catchup.CatchUpResponseAdaptor;
+
+/**
+ * Used client side for event handling of a store listing request
+ */
+public class StoreListingResponseAdaptor extends CatchUpResponseAdaptor<Void>
 {
     @Override
-    public RequestMessageType messageType()
+    public void onStoreListingResponse( CompletableFuture<Void> signal, StoreListingResponse response )
     {
-        return RequestMessageType.STORE_ID;
+        String message = String.format( "Files: %s\nTransactionId: %d\nCounterStoreContents: %s\n", Arrays.asList( response.files ), response.transactionId,
+                Arrays.asList( response.countStoreContents ) );
+        signal.completeExceptionally( new RuntimeException( message ) );
     }
 }

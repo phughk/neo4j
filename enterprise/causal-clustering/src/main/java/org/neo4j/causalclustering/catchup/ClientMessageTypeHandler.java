@@ -68,6 +68,9 @@ public class ClientMessageTypeHandler extends ChannelInboundHandlerAdapter
                 case TX_STREAM_FINISHED:
                     protocol.expect( CatchupClientProtocol.State.TX_STREAM_FINISHED );
                     break;
+                case STORE_LISTING_RESPONSE:
+                    protocol.expect( CatchupClientProtocol.State.STORE_LISTING_RESPONSE);
+                    break;
                 default:
                     log.warn( "No handler found for message type %s (%d)", responseMessageType.name(), byteValue );
             }

@@ -26,6 +26,7 @@ import org.neo4j.causalclustering.catchup.storecopy.FileChunk;
 import org.neo4j.causalclustering.catchup.storecopy.FileHeader;
 import org.neo4j.causalclustering.catchup.storecopy.GetStoreIdResponse;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFinishedResponse;
+import org.neo4j.causalclustering.catchup.storecopy.StoreListingResponse;
 import org.neo4j.causalclustering.catchup.tx.TxPullResponse;
 import org.neo4j.causalclustering.catchup.tx.TxStreamFinishedResponse;
 import org.neo4j.causalclustering.core.state.snapshot.CoreSnapshot;
@@ -34,6 +35,12 @@ public interface CatchUpResponseCallback<T>
 {
     void onFileHeader( CompletableFuture<T> signal, FileHeader fileHeader );
 
+    /**
+     * @param signal ??
+     * @param fileChunk partial contents of file
+     * @return True means stop
+     * @throws IOException
+     */
     boolean onFileContent( CompletableFuture<T> signal, FileChunk fileChunk ) throws IOException;
 
     void onFileStreamingComplete( CompletableFuture<T> signal, StoreCopyFinishedResponse response );
@@ -45,4 +52,11 @@ public interface CatchUpResponseCallback<T>
     void onGetStoreIdResponse( CompletableFuture<T> signal, GetStoreIdResponse response );
 
     void onCoreSnapshot( CompletableFuture<T> signal, CoreSnapshot coreSnapshot );
+
+    /**
+     *
+     * @param signal
+     * @param storeListingResponse
+     */
+    void onStoreListingResponse( CompletableFuture<T> signal, StoreListingResponse storeListingResponse );
 }

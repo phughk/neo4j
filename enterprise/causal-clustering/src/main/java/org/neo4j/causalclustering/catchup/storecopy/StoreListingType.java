@@ -19,14 +19,6 @@
  */
 package org.neo4j.causalclustering.catchup.storecopy;
 
-import org.neo4j.causalclustering.catchup.RequestMessageType;
-import org.neo4j.causalclustering.messaging.CatchUpRequest;
-
-public class GetStoreIdRequest implements CatchUpRequest // TODO find usages or delete
+public class StoreListingType
 {
-    @Override
-    public RequestMessageType messageType()
-    {
-        return RequestMessageType.STORE_ID;
-    }
 }

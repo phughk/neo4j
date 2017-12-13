@@ -43,6 +43,9 @@ import org.neo4j.causalclustering.VersionPrepender;
 import org.neo4j.causalclustering.catchup.CatchupServerProtocol.State;
 import org.neo4j.causalclustering.catchup.storecopy.FileChunkEncoder;
 import org.neo4j.causalclustering.catchup.storecopy.FileHeaderEncoder;
+import org.neo4j.causalclustering.catchup.storecopy.StoreListingRequestDecoder;
+import org.neo4j.causalclustering.catchup.storecopy.StoreListingRequestHandler;
+import org.neo4j.causalclustering.catchup.storecopy.StoreListingResponseEncoder;
 import org.neo4j.causalclustering.catchup.storecopy.StoreResourceStreamFactory;
 import org.neo4j.causalclustering.catchup.storecopy.StoreStreamingProcess;
 import org.neo4j.causalclustering.catchup.storecopy.StoreStreamingProtocol;
@@ -171,6 +174,7 @@ public class CatchupServer extends LifecycleAdapter
                         pipeline.addLast( new TxStreamFinishedResponseEncoder() );
                         pipeline.addLast( new FileChunkEncoder() );
                         pipeline.addLast( new FileHeaderEncoder() );
+                        pipeline.addLast( new StoreListingResponseEncoder() );
 
                         pipeline.addLast( new ServerMessageTypeHandler( protocol, logProvider ) );
 
@@ -185,6 +189,7 @@ public class CatchupServer extends LifecycleAdapter
                                         new StoreResourceStreamFactory( pageCache, fs, dataSourceSupplier ) ) ) );
 
                         pipeline.addLast( new GetStoreIdRequestHandler( protocol, storeIdSupplier ) );
+                        pipeline.addLast( new StoreListingRequestHandler( checkPointerSupplier, storeCopyCheckPointMutex, dataSourceSupplier ) );
 
                         if ( snapshotService != null )
                         {
@@ -228,6 +233,7 @@ public class CatchupServer extends LifecycleAdapter
         decoderDispatcher.register( State.GET_STORE, new GetStoreRequestDecoder() );
         decoderDispatcher.register( State.GET_STORE_ID, new SimpleRequestDecoder( GetStoreIdRequest::new ) );
         decoderDispatcher.register( State.GET_CORE_SNAPSHOT, new SimpleRequestDecoder( CoreSnapshotRequest::new ) );
+        decoderDispatcher.register( State.GET_STORE_LISTING, new StoreListingRequestDecoder() );
         return decoderDispatcher;
     }
 
