@@ -32,7 +32,7 @@ import org.neo4j.kernel.lifecycle.LifecycleAdapter;
 import org.neo4j.logging.Log;
 import org.neo4j.logging.LogProvider;
 
-class SharedDiscoveryCoreClient extends LifecycleAdapter implements CoreTopologyService
+public class SharedDiscoveryCoreClient extends LifecycleAdapter implements CoreTopologyService
 {
     private final SharedDiscoveryService sharedDiscoveryService;
     private final MemberId member;
@@ -43,7 +43,7 @@ class SharedDiscoveryCoreClient extends LifecycleAdapter implements CoreTopology
     private CoreTopology coreTopology;
     private ReadReplicaTopology readReplicaTopology;
 
-    SharedDiscoveryCoreClient( SharedDiscoveryService sharedDiscoveryService, MemberId member, LogProvider logProvider, Config config )
+    public SharedDiscoveryCoreClient( SharedDiscoveryService sharedDiscoveryService, MemberId member, LogProvider logProvider, Config config )
     {
         this.sharedDiscoveryService = sharedDiscoveryService;
         this.member = member;

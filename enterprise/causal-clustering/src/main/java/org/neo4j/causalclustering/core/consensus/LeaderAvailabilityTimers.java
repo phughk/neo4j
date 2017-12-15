@@ -37,7 +37,7 @@ import static org.neo4j.causalclustering.core.consensus.schedule.TimeoutFactory.
 import static org.neo4j.causalclustering.core.consensus.schedule.TimeoutFactory.uniformRandomTimeout;
 import static org.neo4j.causalclustering.core.consensus.schedule.Timer.CancelMode.SYNC_WAIT;
 
-class LeaderAvailabilityTimers
+public class LeaderAvailabilityTimers
 {
     private final long electionTimeout;
     private final long heartbeatInterval;
@@ -50,8 +50,7 @@ class LeaderAvailabilityTimers
     private Timer heartbeatTimer;
     private Timer electionTimer;
 
-    LeaderAvailabilityTimers( Duration electionTimeout, Duration heartbeatInterval, Clock clock, TimerService timerService,
-            LogProvider logProvider )
+    public LeaderAvailabilityTimers( Duration electionTimeout, Duration heartbeatInterval, Clock clock, TimerService timerService, LogProvider logProvider )
     {
         this.electionTimeout = electionTimeout.toMillis();
         this.heartbeatInterval = heartbeatInterval.toMillis();
