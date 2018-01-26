@@ -19,7 +19,6 @@
  */
 package org.neo4j.causalclustering.scenarios;
 
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -29,6 +28,7 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.IntFunction;
 
 import org.neo4j.causalclustering.core.CausalClusteringSettings;
 import org.neo4j.causalclustering.core.consensus.roles.Role;
@@ -46,29 +46,24 @@ import static org.junit.Assert.fail;
 public class PreElectionIT
 {
     @Rule
-    public ClusterRule clusterRule = new ClusterRule( getClass() )
-            .withNumberOfCoreMembers( 3 )
+    public ClusterRule clusterRule = new ClusterRule( getClass() ).withNumberOfCoreMembers( 3 )
             .withNumberOfReadReplicas( 0 )
             .withSharedCoreParam( CausalClusteringSettings.leader_election_timeout, "10s" )
             .withSharedCoreParam( CausalClusteringSettings.enable_pre_voting, "true" );
 
     private Cluster cluster;
 
-    @Before
-    public void setUp() throws Exception
-    {
-        cluster = clusterRule.startCluster();
-    }
-
     @Test
     public void shouldActuallyStartAClusterWithPreVoting() throws Exception
     {
+        cluster = clusterRule.startCluster();
         // pass
     }
 
     @Test
     public void shouldStartAnElectionIfAllServersHaveTimedOutOnHeartbeats() throws Exception
     {
+        cluster = clusterRule.startCluster();
         Collection<CompletableFuture<Void>> futures = new ArrayList<>( cluster.coreMembers().size() );
 
         // given
@@ -84,10 +79,7 @@ public class PreElectionIT
         }
 
         // then
-        Assert.assertEventually(
-                "Should be on a new term following an election",
-                () -> cluster.awaitLeader().raft().term(), not( equalTo( initialTerm ) ),
-                1,
+        Assert.assertEventually( "Should be on a new term following an election", () -> cluster.awaitLeader().raft().term(), not( equalTo( initialTerm ) ), 1,
                 TimeUnit.MINUTES );
 
         // cleanup
@@ -101,6 +93,7 @@ public class PreElectionIT
     public void shouldNotStartAnElectionIfAMinorityOfServersHaveTimedOutOnHeartbeats() throws Exception
     {
         // given
+        cluster = clusterRule.startCluster();
         CoreClusterMember follower = cluster.awaitCoreMemberWithRole( Role.FOLLOWER, 1, TimeUnit.MINUTES );
 
         // when
@@ -122,6 +115,7 @@ public class PreElectionIT
     public void shouldStartElectionIfLeaderRemoved() throws Exception
     {
         // given
+        cluster = clusterRule.startCluster();
         CoreClusterMember oldLeader = cluster.awaitLeader();
 
         // when
@@ -131,5 +125,44 @@ public class PreElectionIT
         CoreClusterMember newLeader = cluster.awaitLeader();
 
         assertThat( newLeader.serverId(), not( equalTo( oldLeader.serverId() ) ) );
+    }
+
+    @Test(timeout = 60_000)
+    public void refuseToBeLeadDoesNotInterfereWithLeadElection() throws Exception
+    {
+        // given
+        clusterRule
+                .withInstanceCoreParam( CausalClusteringSettings.refuse_to_be_leader, moduloTrigger( 3, "false", "true" ) )
+                .withSharedCoreParam( CausalClusteringSettings.multi_dc_license, "true" );
+        cluster = clusterRule.startCluster();
+
+        // and lead is elected
+        CoreClusterMember leader = cluster.awaitLeader();
+
+        // when
+        leader.shutdown();
+
+        // then
+        cluster.awaitLeader();
+    }
+
+    /**
+     *
+     * @param denominator every n ticks will return trigger
+     * @param nonTrigger not trigger value
+     * @param trigger trigger value
+     * @param <E> generic
+     * @return value for setting individual core
+     */
+    private static <E> IntFunction<E> moduloTrigger( int denominator, E nonTrigger, E trigger )
+    {
+        return x ->
+        {
+            if ( x % denominator == 1 )
+            {
+                return trigger;
+            }
+            return nonTrigger;
+        };
     }
 }
