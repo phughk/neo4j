@@ -31,10 +31,15 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.neo4j.causalclustering.ClusterHelper;
 import org.neo4j.causalclustering.core.CausalClusteringSettings;
@@ -44,11 +49,17 @@ import org.neo4j.causalclustering.discovery.Cluster;
 import org.neo4j.causalclustering.discovery.CoreClusterMember;
 import org.neo4j.causalclustering.helpers.CausalClusteringTestHelpers;
 import org.neo4j.graphdb.factory.GraphDatabaseSettings;
+import org.neo4j.io.fs.DefaultFileSystemAbstraction;
 import org.neo4j.kernel.configuration.Config;
 import org.neo4j.kernel.configuration.Settings;
 import org.neo4j.kernel.impl.enterprise.configuration.OnlineBackupSettings;
 import org.neo4j.kernel.impl.store.format.highlimit.HighLimit;
 import org.neo4j.kernel.impl.store.format.standard.Standard;
+import org.neo4j.kernel.impl.transaction.SimpleLogVersionRepository;
+import org.neo4j.kernel.impl.transaction.SimpleTransactionIdStore;
+import org.neo4j.kernel.impl.transaction.log.LogVersionRepository;
+import org.neo4j.kernel.impl.transaction.log.files.LogFiles;
+import org.neo4j.kernel.impl.transaction.log.files.LogFilesBuilder;
 import org.neo4j.test.DbRepresentation;
 import org.neo4j.test.causalclustering.ClusterRule;
 import org.neo4j.test.rule.SuppressOutput;
@@ -154,15 +165,78 @@ public class OnlineBackupCommandCcIT
         ClusterHelper.createIndexes( cluster.getDbWithAnyRole( Role.LEADER ).database() );
 
         // and the database is being populated
-        AtomicBoolean populateDatabaseFlag = new AtomicBoolean( true );
-        new Thread( () -> repeatedlyPopulateDatabase(  cluster, populateDatabaseFlag ) )
-                .start(); // populate db with number properties etc.
-        oneOffShutdownTasks.add( () -> populateDatabaseFlag.set( false ) ); // kill thread
+        populateDatabaseOnSeparateThread( cluster );
 
         // then backup is successful
         String address = TestHelpers.backupAddressCc( clusterLeader( cluster ).database() );
         assertEquals( 0, runBackupToolFromOtherJvmToGetExitCode( "--from", address, "--cc-report-dir=" + backupDir, "--backup-dir=" + backupDir,
                 "--name=defaultport" ) );
+    }
+
+    @Test
+    public void transactionsAreNotKeptAfterBackup() throws Exception
+    {
+        // given
+        Cluster cluster = startCluster( recordFormat );
+        String name = "txLogFilesNotRetained";
+
+        // and
+        createSomeData( cluster );
+        AtomicBoolean kill = populateDatabaseOnSeparateThread( cluster );
+
+        // and full backup has been performed
+        String address = TestHelpers.backupAddressCc( clusterLeader( cluster ).database() );
+        assertEquals( 0, runBackupToolFromOtherJvmToGetExitCode( "--from", address, "--name=" + name, "--backup-dir=" + backupDir ) );
+
+        // and conditions for incremental backup exist
+        createSomeData( cluster );
+
+        // when incremental backup is performed
+        Thread.sleep( 2000 );
+        kill.set( false );
+        assertEquals( 0, runBackupToolFromOtherJvmToGetExitCode( "--from", address, "--name=" + name, "--backup-dir=" + backupDir ) );
+
+        // then there are no tx logs
+        File backupLocation = new File( backupDir, name );
+        assertEquals( Collections.emptyList(), findTransactionLogFiles( backupLocation ) );
+    }
+
+    /**
+     * Start a new thread and repeatedly populate the database
+     * @param cluster cluster
+     * @return kill switch, when false thread will stop running
+     */
+    private AtomicBoolean populateDatabaseOnSeparateThread( Cluster cluster )
+    {
+        AtomicBoolean populateDatabaseFlag = new AtomicBoolean( true );
+        new Thread( () -> repeatedlyPopulateDatabase( cluster, populateDatabaseFlag ) ).start(); // populate db with number properties etc.
+        oneOffShutdownTasks.add( () -> populateDatabaseFlag.set( false ) ); // kill thread
+        return populateDatabaseFlag;
+    }
+
+    private static List<File> findTransactionLogFiles( File location )
+    {
+        List<File> listed = Arrays.asList( Optional.ofNullable( location.listFiles() ).orElse( new File[]{} ) );
+        return listed.stream()
+                .filter( isTransactionLogFile( location ) )
+                .collect( Collectors.toList() );
+    }
+
+    private static Predicate<File> isTransactionLogFile( File location )
+    {
+        LogFiles logFiles;
+        try
+        {
+            logFiles = LogFilesBuilder.builder( location, new DefaultFileSystemAbstraction())
+                    .withLogVersionRepository( new SimpleLogVersionRepository() )
+                    .withTransactionIdStore( new SimpleTransactionIdStore(  ) )
+                    .build();
+        }
+        catch ( IOException e )
+        {
+            throw new RuntimeException( e );
+        }
+        return logFiles::isLogFile;
     }
 
     private void repeatedlyPopulateDatabase( Cluster cluster, AtomicBoolean continueFlagReference )
