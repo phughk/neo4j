@@ -217,11 +217,9 @@ class BackupService
         Map<String,String> temporaryDbConfig = getTemporaryDbConfig();
         config.augment( temporaryDbConfig );
 
-        Map<String,String> configParams = config.getRaw();
-
         try ( PageCache pageCache = createPageCache( fileSystem, config ) )
         {
-            GraphDatabaseAPI targetDb = startTemporaryDb( targetDirectory, pageCache, configParams );
+            GraphDatabaseAPI targetDb = startTemporaryDb( targetDirectory, pageCache, config.getRaw() );
             long backupStartTime = System.currentTimeMillis();
             long lastCommittedTx;
             try
