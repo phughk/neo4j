@@ -43,12 +43,13 @@ public class GetStoreFileMarshalTest
     private static final StoreId expectedStore = new StoreId( 1, 2, 3, 4 );
     private static final File expectedFile = new File( "abc.123" );
     private static final Long expectedLastTransaction = 1234L;
+    private static final Long expectedFileOffset = 40_000_000_000L;
 
     @Test
     public void getsTransmitted()
     {
         // given
-        GetStoreFileRequest expectedStoreRequest = new GetStoreFileRequest( expectedStore, expectedFile, expectedLastTransaction );
+        GetStoreFileRequest expectedStoreRequest = new GetStoreFileRequest( expectedStore, expectedFile, expectedLastTransaction, expectedFileOffset );
 
         // when
         sendToChannel( expectedStoreRequest, embeddedChannel );
@@ -58,6 +59,7 @@ public class GetStoreFileMarshalTest
         assertEquals( expectedStore, actualStoreRequest.expectedStoreId() );
         assertEquals( expectedFile, actualStoreRequest.file() );
         assertEquals( expectedLastTransaction.longValue(), actualStoreRequest.requiredTransactionId() );
+        assertEquals( expectedFileOffset.longValue(), actualStoreRequest.offset() );
     }
 
     private static void sendToChannel( GetStoreFileRequest getStoreFileRequest, EmbeddedChannel embeddedChannel )

@@ -40,12 +40,14 @@ public class StoreCopyClient
     private final CatchUpClient catchUpClient;
     private final Log log;
     private final LogProvider logProvider;
+    private final FileOffsetReader fileOffsetReader;
 
-    public StoreCopyClient( CatchUpClient catchUpClient, LogProvider logProvider )
+    public StoreCopyClient( CatchUpClient catchUpClient, LogProvider logProvider, FileOffsetReader fileOffsetReader )
     {
         this.catchUpClient = catchUpClient;
         log = logProvider.getLog( getClass() );
         this.logProvider = logProvider;
+        this.fileOffsetReader = fileOffsetReader;
     }
 
     long copyStoreFiles( CatchupAddressProvider catchupAddressProvider, StoreId expectedStoreId, StoreFileStreams storeFileStreams,
@@ -81,8 +83,9 @@ public class StoreCopyClient
                 {
                     AdvertisedSocketAddress from = addressProvider.primary();
                     log.info( String.format( "Downloading file '%s' from '%s'", file, from ) );
+                    long offset = fileOffsetReader.progressSoFar( file );
                     StoreCopyFinishedResponse response =
-                            catchUpClient.makeBlockingRequest( from, new GetStoreFileRequest( expectedStoreId, file, lastTransactionId ), copyHandler );
+                            catchUpClient.makeBlockingRequest( from, new GetStoreFileRequest( expectedStoreId, file, lastTransactionId, offset ), copyHandler );
                     successful = successfulFileDownload( response );
                 }
                 catch ( CatchUpClientException | CatchupAddressResolutionException e )
@@ -134,6 +137,9 @@ public class StoreCopyClient
         }
     }
 
+    /**
+     * Note this not only lists the files, but also among other perhaps not mentioned: copies count files & lucene index files
+     */
     private PrepareStoreCopyResponse listFiles( AdvertisedSocketAddress from, StoreId expectedStoreId, StoreFileStreams storeFileStreams )
             throws CatchUpClientException, StoreCopyFailedException
     {

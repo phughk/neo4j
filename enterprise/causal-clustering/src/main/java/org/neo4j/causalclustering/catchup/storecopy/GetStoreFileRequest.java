@@ -45,12 +45,14 @@ public class GetStoreFileRequest implements CatchUpRequest
     private final StoreId expectedStoreId;
     private final File file;
     private final long requiredTransactionId;
+    private final long offset;
 
-    public GetStoreFileRequest( StoreId expectedStoreId, File file, long requiredTransactionId )
+    public GetStoreFileRequest( StoreId expectedStoreId, File file, long requiredTransactionId, long offset )
     {
         this.expectedStoreId = expectedStoreId;
         this.file = file;
         this.requiredTransactionId = requiredTransactionId;
+        this.offset = offset;
     }
 
     long requiredTransactionId()
@@ -66,6 +68,11 @@ public class GetStoreFileRequest implements CatchUpRequest
     File file()
     {
         return file;
+    }
+
+    long offset()
+    {
+        return offset;
     }
 
     @Override
@@ -84,7 +91,8 @@ public class GetStoreFileRequest implements CatchUpRequest
             int fileNameLength = channel.getInt();
             byte[] fileNameBytes = new byte[fileNameLength];
             channel.get( fileNameBytes, fileNameLength );
-            return new GetStoreFileRequest( storeId, new File( UTF8.decode( fileNameBytes ) ), requiredTransactionId );
+            long offset = channel.getLong();
+            return new GetStoreFileRequest( storeId, new File( UTF8.decode( fileNameBytes ) ), requiredTransactionId, offset );
         }
 
         @Override
@@ -95,6 +103,7 @@ public class GetStoreFileRequest implements CatchUpRequest
             String name = getStoreFileRequest.file().getName();
             channel.putInt( name.length() );
             channel.put( UTF8.encode( name ), name.length() );
+            channel.putLong( getStoreFileRequest.offset() );
         }
     }
 

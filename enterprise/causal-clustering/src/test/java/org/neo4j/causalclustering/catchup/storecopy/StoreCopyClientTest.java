@@ -201,8 +201,8 @@ public class StoreCopyClientTest
         when( catchUpClient.makeBlockingRequest( any(), any(), any() ) ).thenReturn( prepareStoreCopyResponse );
 
         // and individual file requests get store id mismatch
-        StoreCopyFinishedResponse individualFileStoreCopyResposne = new StoreCopyFinishedResponse( StoreCopyFinishedResponse.Status.E_STORE_ID_MISMATCH );
-        when( catchUpClient.makeBlockingRequest( any(), any(), any() ) ).thenReturn( prepareStoreCopyResponse, individualFileStoreCopyResposne );
+        StoreCopyFinishedResponse individualFileStoreCopyResponse = new StoreCopyFinishedResponse( StoreCopyFinishedResponse.Status.E_STORE_ID_MISMATCH );
+        when( catchUpClient.makeBlockingRequest( any(), any(), any() ) ).thenReturn( prepareStoreCopyResponse, individualFileStoreCopyResponse );
 
         // then exception denotes store id mismatch
         expectedException.expect( StoreCopyFailedException.class );
@@ -210,6 +210,25 @@ public class StoreCopyClientTest
 
         // when copy is performed
         subject.copyStoreFiles( catchupAddressProvider, expectedStoreId, expectedStoreFileStreams, continueIndefinitely() );
+    }
+
+    @Test
+    public void existingFilesAreResumedFromCorrectOffset() throws CatchUpClientException
+    {
+        // given we have a semi-complete file download for a listed file
+        long expectedTransactionId = 123L;
+        File expectedPartialFile = new File( "expected-file.txt" );
+        long expectedOffset = 300;
+
+        // and we don't mind the other responses
+        PrepareStoreCopyResponse prepareStoreCopyResponse = PrepareStoreCopyResponse.success( serverFiles, descriptors, expectedTransactionId );
+        when( catchUpClient.makeBlockingRequest( any(), any(), any() ) ).thenReturn( prepareStoreCopyResponse );
+
+        // when we perform a backup from the target
+
+        // then the file we already have is resumed from the existing offset
+        CatchUpRequest catchUpRequest = new GetStoreFileRequest( expectedStoreId, expectedPartialFile, expectedTransactionId, expectedOffset );
+        verify( catchUpClient.makeBlockingRequest( any(), eq( catchUpRequest ), any() ) );
     }
 
     private List<CatchUpRequest> getRequests() throws CatchUpClientException

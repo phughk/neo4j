@@ -25,41 +25,16 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.neo4j.commandline.admin.AdminTool;
-import org.neo4j.helpers.HostnamePort;
 import org.neo4j.helpers.ListenSocketAddress;
 import org.neo4j.io.proc.ProcessUtil;
 import org.neo4j.kernel.configuration.Config;
-import org.neo4j.kernel.impl.enterprise.configuration.OnlineBackupSettings;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.test.ProcessStreamHandler;
 
-import static java.lang.String.format;
 import static org.neo4j.kernel.configuration.Settings.listenAddress;
 
 public class TestHelpers
 {
-    public static Exception executionIsExpectedToFail( Runnable runnable )
-    {
-        return executionIsExpectedToFail( runnable, RuntimeException.class );
-    }
-
-    public static <E extends Exception> E executionIsExpectedToFail( Runnable runnable, Class<E> exceptionClass )
-    {
-        try
-        {
-            runnable.run();
-        }
-        catch ( Exception e )
-        {
-            if ( !exceptionClass.isInstance( e ) )
-            {
-                throw new AssertionError( format( "Exception %s is not of type %s", e.getClass().getName(), exceptionClass.getName() ), e );
-            }
-            return (E) e;
-        }
-        throw new AssertionError( "The code expected to fail hasn't failed" );
-    }
-
     public static int runBackupToolFromOtherJvmToGetExitCode( File neo4jHome, String... args ) throws Exception
     {
         List<String> allArgs =
@@ -81,16 +56,4 @@ public class TestHelpers
 
         return hostnamePort.toString();
     }
-
-    public static String backupAddressHa( GraphDatabaseAPI graphDatabase )
-    {
-        HostnamePort hostnamePort = graphDatabase
-                .getDependencyResolver()
-                .resolveDependency( Config.class )
-                .get( OnlineBackupSettings.online_backup_server );
-
-        return hostnamePort.toString();
-    }
-
 }
-

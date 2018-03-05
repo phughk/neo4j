@@ -93,7 +93,7 @@ class SimpleCatchupClient implements AutoCloseable
     StoreCopyFinishedResponse requestIndividualFile( File file, StoreId expectedStoreId ) throws CatchUpClientException
     {
         long lastTransactionId = getCheckPointer( graphDb ).lastCheckPointedTransactionId();
-        GetStoreFileRequest storeFileRequest = new GetStoreFileRequest( expectedStoreId, file, lastTransactionId );
+        GetStoreFileRequest storeFileRequest = new GetStoreFileRequest( expectedStoreId, file, lastTransactionId, 0 );
         return catchUpClient.makeBlockingRequest( from, storeFileRequest, new StoreCopyClient.StoreFileCopyResponseAdaptor( streamToDisk, log ) );
     }
 
