@@ -19,13 +19,14 @@
  */
 package org.neo4j.causalclustering.core.state.snapshot;
 
-import org.neo4j.causalclustering.catchup.CatchupAddressProvider;
+import java.util.function.Supplier;
+
 import org.neo4j.causalclustering.core.state.CommandApplicationProcess;
 import org.neo4j.causalclustering.helper.TimeoutStrategy;
-import org.neo4j.scheduler.JobScheduler;
 import org.neo4j.kernel.lifecycle.LifecycleAdapter;
 import org.neo4j.logging.Log;
 import org.neo4j.logging.LogProvider;
+import org.neo4j.scheduler.JobScheduler;
 
 import static org.neo4j.scheduler.JobScheduler.Groups.downloadSnapshot;
 
@@ -41,8 +42,7 @@ public class CoreStateDownloaderService extends LifecycleAdapter
 
     public CoreStateDownloaderService( JobScheduler jobScheduler, CoreStateDownloader downloader,
             CommandApplicationProcess applicationProcess,
-            LogProvider logProvider,
-            TimeoutStrategy.Timeout downloaderPauseStrategy )
+            LogProvider logProvider, TimeoutStrategy.Timeout downloaderPauseStrategy )
     {
         this.jobScheduler = jobScheduler;
         this.downloader = downloader;
@@ -51,7 +51,7 @@ public class CoreStateDownloaderService extends LifecycleAdapter
         this.downloaderPauseStrategy = downloaderPauseStrategy;
     }
 
-    public synchronized void scheduleDownload( CatchupAddressProvider addressProvider )
+    public synchronized void scheduleDownload( Supplier<IdentityMetaData> addressProvider )
     {
         if ( stopped )
         {
@@ -60,8 +60,8 @@ public class CoreStateDownloaderService extends LifecycleAdapter
 
         if ( currentJob == null || currentJob.hasCompleted() )
         {
-            currentJob = new PersistentSnapshotDownloader( addressProvider, applicationProcess, downloader, log,
-                    downloaderPauseStrategy );
+            currentJob =
+                    new PersistentSnapshotDownloader( addressProvider, applicationProcess, downloader, log, downloaderPauseStrategy );
             jobScheduler.schedule( downloadSnapshot, currentJob );
         }
     }

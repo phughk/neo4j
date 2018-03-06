@@ -19,7 +19,8 @@
  */
 package org.neo4j.causalclustering.core.state.snapshot;
 
-import org.neo4j.causalclustering.catchup.CatchupAddressProvider;
+import java.util.function.Supplier;
+
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFailedException;
 import org.neo4j.causalclustering.core.state.CommandApplicationProcess;
 import org.neo4j.causalclustering.helper.TimeoutStrategy;
@@ -32,18 +33,18 @@ class PersistentSnapshotDownloader implements Runnable
     static final String OPERATION_NAME = "download of snapshot";
 
     private final CommandApplicationProcess applicationProcess;
-    private final CatchupAddressProvider addressProvider;
+    private final Supplier<IdentityMetaData> groupAddressProvider;
     private final CoreStateDownloader downloader;
     private final Log log;
     private final TimeoutStrategy.Timeout timeout;
     private volatile State state;
     private volatile boolean keepRunning;
 
-    PersistentSnapshotDownloader( CatchupAddressProvider addressProvider, CommandApplicationProcess applicationProcess, CoreStateDownloader downloader, Log log,
-            TimeoutStrategy.Timeout pauseStrategy )
+    PersistentSnapshotDownloader( Supplier<IdentityMetaData> groupAddressProvider, CommandApplicationProcess applicationProcess, CoreStateDownloader downloader,
+            Log log, TimeoutStrategy.Timeout pauseStrategy )
     {
         this.applicationProcess = applicationProcess;
-        this.addressProvider = addressProvider;
+        this.groupAddressProvider = groupAddressProvider;
         this.downloader = downloader;
         this.log = log;
         this.timeout = pauseStrategy;
@@ -73,7 +74,7 @@ class PersistentSnapshotDownloader implements Runnable
             {
                 try
                 {
-                    downloader.downloadSnapshot( addressProvider );
+                    downloader.downloadSnapshot( groupAddressProvider );
                     break;
                 }
                 catch ( StoreCopyFailedException e )

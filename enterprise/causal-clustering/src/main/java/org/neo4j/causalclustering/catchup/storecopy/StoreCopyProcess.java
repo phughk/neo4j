@@ -20,8 +20,9 @@
 package org.neo4j.causalclustering.catchup.storecopy;
 
 import java.io.IOException;
+import java.util.function.Supplier;
 
-import org.neo4j.causalclustering.catchup.CatchupAddressProvider;
+import org.neo4j.causalclustering.core.state.snapshot.IdentityMetaData;
 import org.neo4j.causalclustering.identity.StoreId;
 import org.neo4j.io.fs.FileSystemAbstraction;
 import org.neo4j.io.pagecache.PageCache;
@@ -48,7 +49,7 @@ public class StoreCopyProcess
         this.log = logProvider.getLog( getClass() );
     }
 
-    public void replaceWithStoreFrom( CatchupAddressProvider addressProvider, StoreId expectedStoreId )
+    public void replaceWithStoreFrom( Supplier<IdentityMetaData> addressProvider, StoreId expectedStoreId )
             throws IOException, StoreCopyFailedException, StreamingTransactionsFailedException
     {
         try ( TemporaryStoreDirectory tempStore = new TemporaryStoreDirectory( fs, pageCache, localDatabase.storeDir() ) )

@@ -23,13 +23,13 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 import org.neo4j.causalclustering.catchup.CatchUpClient;
-import org.neo4j.causalclustering.catchup.CatchupAddressProvider;
 import org.neo4j.causalclustering.catchup.CatchupResult;
 import org.neo4j.causalclustering.catchup.storecopy.RemoteStore;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyClient;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFailedException;
 import org.neo4j.causalclustering.catchup.storecopy.StoreIdDownloadFailedException;
 import org.neo4j.causalclustering.catchup.storecopy.StreamingTransactionsFailedException;
+import org.neo4j.causalclustering.core.state.snapshot.IdentityMetaData;
 import org.neo4j.causalclustering.identity.StoreId;
 import org.neo4j.helpers.AdvertisedSocketAddress;
 import org.neo4j.kernel.lifecycle.LifecycleAdapter;
@@ -53,9 +53,10 @@ class BackupDelegator extends LifecycleAdapter
 
     void copy( AdvertisedSocketAddress fromAddress, StoreId expectedStoreId, Path destDir ) throws StoreCopyFailedException
     {
+        IdentityMetaData identityMetaData = new IdentityMetaData( fromAddress, null, expectedStoreId, null, null );
         try
         {
-            remoteStore.copy( new CatchupAddressProvider.SingleAddressProvider( fromAddress ), expectedStoreId, destDir.toFile() );
+            remoteStore.copy( () -> identityMetaData, expectedStoreId, destDir.toFile() );
         }
         catch ( StreamingTransactionsFailedException e )
         {

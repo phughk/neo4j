@@ -22,9 +22,7 @@ package org.neo4j.causalclustering.readreplica;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -32,6 +30,7 @@ import java.util.function.Supplier;
 import org.neo4j.causalclustering.catchup.CatchUpClient;
 import org.neo4j.causalclustering.catchup.CatchupServer;
 import org.neo4j.causalclustering.catchup.CheckpointerSupplier;
+import org.neo4j.causalclustering.catchup.TopologyCatchupAddressProvider;
 import org.neo4j.causalclustering.catchup.storecopy.CopiedStoreRecovery;
 import org.neo4j.causalclustering.catchup.storecopy.LocalDatabase;
 import org.neo4j.causalclustering.catchup.storecopy.RemoteStore;
@@ -43,7 +42,9 @@ import org.neo4j.causalclustering.catchup.tx.CatchupPollingProcess;
 import org.neo4j.causalclustering.catchup.tx.TransactionLogCatchUpFactory;
 import org.neo4j.causalclustering.catchup.tx.TxPullClient;
 import org.neo4j.causalclustering.core.CausalClusteringSettings;
+import org.neo4j.causalclustering.core.SharedEnterpriseEditionModule;
 import org.neo4j.causalclustering.core.consensus.schedule.TimerService;
+import org.neo4j.causalclustering.core.state.snapshot.IdentityMetaData;
 import org.neo4j.causalclustering.discovery.DiscoveryServiceFactory;
 import org.neo4j.causalclustering.discovery.HostnameResolver;
 import org.neo4j.causalclustering.discovery.TopologyService;
@@ -84,7 +85,6 @@ import org.neo4j.kernel.impl.enterprise.configuration.OnlineBackupSettings;
 import org.neo4j.kernel.impl.enterprise.id.EnterpriseIdTypeConfigurationProvider;
 import org.neo4j.kernel.impl.enterprise.transaction.log.checkpoint.ConfigurableIOLimiter;
 import org.neo4j.kernel.impl.factory.DatabaseInfo;
-import org.neo4j.kernel.impl.factory.EditionModule;
 import org.neo4j.kernel.impl.factory.GraphDatabaseFacade;
 import org.neo4j.kernel.impl.factory.PlatformModule;
 import org.neo4j.kernel.impl.factory.ReadOnly;
@@ -110,7 +110,6 @@ import org.neo4j.kernel.lifecycle.LifeSupport;
 import org.neo4j.kernel.lifecycle.LifecycleStatus;
 import org.neo4j.kernel.monitoring.Monitors;
 import org.neo4j.logging.LogProvider;
-import org.neo4j.logging.NullLogProvider;
 import org.neo4j.storageengine.api.StorageEngine;
 import org.neo4j.time.Clocks;
 import org.neo4j.udc.UsageData;
@@ -121,7 +120,7 @@ import static org.neo4j.causalclustering.discovery.ResolutionResolverFactory.cho
  * This implementation of {@link org.neo4j.kernel.impl.factory.EditionModule} creates the implementations of services
  * that are specific to the Enterprise Read Replica edition.
  */
-public class EnterpriseReadReplicaEditionModule extends EditionModule
+public class EnterpriseReadReplicaEditionModule extends SharedEnterpriseEditionModule
 {
     public EnterpriseReadReplicaEditionModule( final PlatformModule platformModule,
                                         final DiscoveryServiceFactory discoveryServiceFactory, MemberId myself )
@@ -245,27 +244,12 @@ public class EnterpriseReadReplicaEditionModule extends EditionModule
         StoreCopyProcess storeCopyProcess = new StoreCopyProcess( fileSystem, pageCache, localDatabase,
                 copiedStoreRecovery, remoteStore, logProvider );
 
-        ConnectToRandomCoreServerStrategy defaultStrategy = new ConnectToRandomCoreServerStrategy();
-        defaultStrategy.inject( topologyService, config, logProvider, myself );
-
-        UpstreamDatabaseStrategiesLoader loader;
-        if ( config.get( CausalClusteringSettings.multi_dc_license ) )
-        {
-            loader = new UpstreamDatabaseStrategiesLoader( topologyService, config, myself, logProvider );
-            logProvider.getLog( getClass() ).info( "Multi-Data Center option enabled." );
-        }
-        else
-        {
-            loader = new NoOpUpstreamDatabaseStrategiesLoader();
-        }
-
-        UpstreamDatabaseStrategySelector upstreamDatabaseStrategySelector =
-                new UpstreamDatabaseStrategySelector( defaultStrategy, loader, myself, logProvider );
-
+        UpstreamDatabaseStrategySelector upstreamDatabaseStrategySelector = getUpstreamDatabaseStrategySelector( config, topologyService, myself, logProvider );
+        Supplier<IdentityMetaData> catchupAddressProvider = new TopologyCatchupAddressProvider( upstreamDatabaseStrategySelector );
         CatchupPollingProcess catchupProcess =
                 new CatchupPollingProcess( logProvider, localDatabase, servicesToStopOnStoreCopy, catchUpClient, upstreamDatabaseStrategySelector,
                         timerService, config.get( CausalClusteringSettings.pull_interval ).toMillis(), batchingTxApplier, platformModule.monitors,
-                        storeCopyProcess, databaseHealthSupplier, topologyService );
+                        storeCopyProcess, databaseHealthSupplier, topologyService, catchupAddressProvider );
         dependencies.satisfyDependencies( catchupProcess );
 
         txPulling.add( batchingTxApplier );
@@ -343,33 +327,6 @@ public class EnterpriseReadReplicaEditionModule extends EditionModule
     public void setupSecurityModule( PlatformModule platformModule, Procedures procedures )
     {
         EnterpriseEditionModule.setupEnterpriseSecurityModule( platformModule, procedures );
-    }
-
-    private class NoOpUpstreamDatabaseStrategiesLoader extends UpstreamDatabaseStrategiesLoader
-    {
-        NoOpUpstreamDatabaseStrategiesLoader()
-        {
-            super( null, null, null, NullLogProvider.getInstance() );
-        }
-
-        @Override
-        public Iterator<UpstreamDatabaseSelectionStrategy> iterator()
-        {
-            return new Iterator<UpstreamDatabaseSelectionStrategy>()
-            {
-                @Override
-                public boolean hasNext()
-                {
-                    return false;
-                }
-
-                @Override
-                public UpstreamDatabaseSelectionStrategy next()
-                {
-                    throw new NoSuchElementException();
-                }
-            };
-        }
     }
 
     private static TopologyServiceRetryStrategy resolveStrategy( Config config, LogProvider logProvider )

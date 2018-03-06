@@ -23,8 +23,8 @@ import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 
-import org.neo4j.causalclustering.catchup.CatchupAddressProvider;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFailedException;
 import org.neo4j.causalclustering.core.state.CommandApplicationProcess;
 import org.neo4j.function.Predicates;
@@ -44,7 +44,8 @@ import static org.neo4j.causalclustering.core.state.snapshot.PersistentSnapshotD
 public class PersistentSnapshotDownloaderTest
 {
     private final AdvertisedSocketAddress fromAddress = new AdvertisedSocketAddress( "localhost", 1234 );
-    private final CatchupAddressProvider catchupAddressProvider = CatchupAddressProvider.fromSingleAddress( fromAddress );
+    private final IdentityMetaData identityMetaData = new IdentityMetaData( fromAddress, null, null, null, null );
+    private final Supplier<IdentityMetaData> catchupAddressProvider = () -> identityMetaData;
 
     @Test
     public void shouldPauseAndResumeApplicationProcessIfDownloadIsSuccessful() throws Exception
@@ -205,7 +206,7 @@ public class PersistentSnapshotDownloaderTest
         }
 
         @Override
-        void downloadSnapshot( CatchupAddressProvider addressProvider ) throws StoreCopyFailedException
+        void downloadSnapshot( Supplier<IdentityMetaData> addressProvider ) throws StoreCopyFailedException
         {
             if ( after-- > 0 )
             {

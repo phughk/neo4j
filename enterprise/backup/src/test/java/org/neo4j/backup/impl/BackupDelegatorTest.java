@@ -26,15 +26,16 @@ import org.mockito.ArgumentCaptor;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.function.Supplier;
 
 import org.neo4j.causalclustering.catchup.CatchUpClient;
-import org.neo4j.causalclustering.catchup.CatchupAddressProvider;
 import org.neo4j.causalclustering.catchup.CatchupAddressResolutionException;
 import org.neo4j.causalclustering.catchup.storecopy.RemoteStore;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyClient;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFailedException;
 import org.neo4j.causalclustering.catchup.storecopy.StoreIdDownloadFailedException;
 import org.neo4j.causalclustering.catchup.storecopy.StreamingTransactionsFailedException;
+import org.neo4j.causalclustering.core.state.snapshot.IdentityMetaData;
 import org.neo4j.causalclustering.identity.StoreId;
 import org.neo4j.helpers.AdvertisedSocketAddress;
 
@@ -127,10 +128,10 @@ public class BackupDelegatorTest
         subject.copy( anyAddress, storeId, anyFile );
 
         // then
-        ArgumentCaptor<CatchupAddressProvider> argumentCaptor = ArgumentCaptor.forClass( CatchupAddressProvider.class );
+        ArgumentCaptor<Supplier<IdentityMetaData>> argumentCaptor = ArgumentCaptor.forClass( Supplier.class );
         verify( remoteStore ).copy( argumentCaptor.capture(), eq( storeId ), eq( anyFile.toFile() ) );
 
         //and
-        assertEquals( anyAddress, argumentCaptor.getValue().primary() );
+        assertEquals( anyAddress, argumentCaptor.getValue().get() );
     }
 }

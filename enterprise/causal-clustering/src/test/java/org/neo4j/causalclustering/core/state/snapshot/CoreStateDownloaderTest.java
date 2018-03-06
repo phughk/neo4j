@@ -23,11 +23,9 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.function.Supplier;
 
 import org.neo4j.causalclustering.catchup.CatchUpClient;
-import org.neo4j.causalclustering.catchup.CatchupAddressProvider;
 import org.neo4j.causalclustering.catchup.storecopy.CommitStateHelper;
 import org.neo4j.causalclustering.catchup.storecopy.LocalDatabase;
 import org.neo4j.causalclustering.catchup.storecopy.RemoteStore;
@@ -35,8 +33,6 @@ import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFailedException;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyProcess;
 import org.neo4j.causalclustering.core.state.CoreSnapshotService;
 import org.neo4j.causalclustering.core.state.machines.CoreStateMachines;
-import org.neo4j.causalclustering.discovery.TopologyService;
-import org.neo4j.causalclustering.identity.MemberId;
 import org.neo4j.causalclustering.identity.StoreId;
 import org.neo4j.helpers.AdvertisedSocketAddress;
 import org.neo4j.kernel.lifecycle.Lifecycle;
@@ -60,15 +56,14 @@ public class CoreStateDownloaderTest
     private final CatchUpClient catchUpClient = mock( CatchUpClient.class );
     private final StoreCopyProcess storeCopyProcess = mock( StoreCopyProcess.class );
     private CoreSnapshotService snapshotService = mock( CoreSnapshotService.class );
-    private TopologyService topologyService = mock( TopologyService.class );
     private CommitStateHelper commitStateHelper = mock( CommitStateHelper.class );
     private final CoreStateMachines coreStateMachines = mock( CoreStateMachines.class );
 
     private final NullLogProvider logProvider = NullLogProvider.getInstance();
 
-    private final MemberId remoteMember = new MemberId( UUID.randomUUID() );
     private final AdvertisedSocketAddress remoteAddress = new AdvertisedSocketAddress( "remoteAddress", 1234 );
-    private final CatchupAddressProvider catchupAddressProvider = CatchupAddressProvider.fromSingleAddress( remoteAddress );
+    private final IdentityMetaData identityMetaData = new IdentityMetaData( remoteAddress, null, null, null, null ); // TODO
+    private final Supplier<IdentityMetaData> catchupAddressProvider = () -> identityMetaData;
     private final StoreId storeId = new StoreId( 1, 2, 3, 4 );
     private final File storeDir = new File( "graph.db" );
 
@@ -81,7 +76,6 @@ public class CoreStateDownloaderTest
     {
         when( localDatabase.storeId() ).thenReturn( storeId );
         when( localDatabase.storeDir() ).thenReturn( storeDir );
-        when( topologyService.findCatchupAddress( remoteMember ) ).thenReturn( Optional.of( remoteAddress ) );
     }
 
     @Test

@@ -26,15 +26,16 @@ import org.mockito.Mockito;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.function.Supplier;
 
 import org.neo4j.causalclustering.catchup.CatchUpClient;
 import org.neo4j.causalclustering.catchup.CatchUpResponseCallback;
-import org.neo4j.causalclustering.catchup.CatchupAddressProvider;
 import org.neo4j.causalclustering.catchup.CatchupResult;
 import org.neo4j.causalclustering.catchup.storecopy.LocalDatabase;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyProcess;
 import org.neo4j.causalclustering.core.consensus.schedule.CountingTimerService;
 import org.neo4j.causalclustering.core.consensus.schedule.Timer;
+import org.neo4j.causalclustering.core.state.snapshot.IdentityMetaData;
 import org.neo4j.causalclustering.discovery.TopologyService;
 import org.neo4j.causalclustering.identity.MemberId;
 import org.neo4j.causalclustering.identity.StoreId;
@@ -54,7 +55,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -82,7 +82,8 @@ public class CatchupPollingProcessTest
     private final LocalDatabase localDatabase = mock( LocalDatabase.class );
     private final TopologyService topologyService = mock( TopologyService.class );
     private final AdvertisedSocketAddress coreMemberAddress = new AdvertisedSocketAddress( "hostname", 1234 );
-    private final CatchupAddressProvider catchupAddressProvider = CatchupAddressProvider.fromSingleAddress( coreMemberAddress );
+    private final IdentityMetaData identityMetaData = new IdentityMetaData( null, null, null, null, null );
+    private final Supplier<IdentityMetaData> catchupAddressProvider = () -> identityMetaData;
 
     {
         when( localDatabase.storeId() ).thenReturn( storeId );
@@ -93,7 +94,8 @@ public class CatchupPollingProcessTest
 
     private final CatchupPollingProcess txPuller =
             new CatchupPollingProcess( NullLogProvider.getInstance(), localDatabase, startStopOnStoreCopy, catchUpClient, strategyPipeline, timerService,
-                    txPullIntervalMillis, txApplier, new Monitors(), storeCopyProcess, () -> mock( DatabaseHealth.class ), topologyService );
+                    txPullIntervalMillis, txApplier, new Monitors(), storeCopyProcess, () -> mock( DatabaseHealth.class ), topologyService,
+                    catchupAddressProvider );
 
     @Before
     public void before() throws Throwable
@@ -182,7 +184,7 @@ public class CatchupPollingProcessTest
         // then
         verify( localDatabase ).stopForStoreCopy();
         verify( startStopOnStoreCopy ).stop();
-        verify( storeCopyProcess ).replaceWithStoreFrom( any( CatchupAddressProvider.class ), eq( storeId ) );
+        verify( storeCopyProcess ).replaceWithStoreFrom( any( Supplier.class ), eq( storeId ) );
         verify( localDatabase ).start();
         verify( startStopOnStoreCopy ).start();
         verify( txApplier ).refreshFromNewStore();

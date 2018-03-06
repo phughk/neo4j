@@ -27,7 +27,6 @@ import java.util.function.Supplier;
 import org.neo4j.causalclustering.catchup.CatchUpClient;
 import org.neo4j.causalclustering.catchup.CatchUpClientException;
 import org.neo4j.causalclustering.catchup.CatchUpResponseAdaptor;
-import org.neo4j.causalclustering.catchup.CatchupAddressProvider;
 import org.neo4j.causalclustering.catchup.storecopy.LocalDatabase;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyFailedException;
 import org.neo4j.causalclustering.catchup.storecopy.StoreCopyProcess;
@@ -35,6 +34,7 @@ import org.neo4j.causalclustering.catchup.storecopy.StreamingTransactionsFailedE
 import org.neo4j.causalclustering.core.consensus.schedule.Timer;
 import org.neo4j.causalclustering.core.consensus.schedule.TimerService;
 import org.neo4j.causalclustering.core.consensus.schedule.TimerService.TimerName;
+import org.neo4j.causalclustering.core.state.snapshot.IdentityMetaData;
 import org.neo4j.causalclustering.core.state.snapshot.TopologyLookupException;
 import org.neo4j.causalclustering.discovery.TopologyService;
 import org.neo4j.causalclustering.identity.MemberId;
@@ -96,6 +96,7 @@ public class CatchupPollingProcess extends LifecycleAdapter
     private final BatchingTxApplier applier;
     private final PullRequestMonitor pullRequestMonitor;
     private final TopologyService topologyService;
+    private final Supplier<IdentityMetaData> addressProvider;
 
     private Timer timer;
     private volatile State state = TX_PULLING;
@@ -105,7 +106,8 @@ public class CatchupPollingProcess extends LifecycleAdapter
 
     public CatchupPollingProcess( LogProvider logProvider, LocalDatabase localDatabase, Lifecycle startStopOnStoreCopy, CatchUpClient catchUpClient,
             UpstreamDatabaseStrategySelector selectionStrategy, TimerService timerService, long txPullIntervalMillis, BatchingTxApplier applier,
-            Monitors monitors, StoreCopyProcess storeCopyProcess, Supplier<DatabaseHealth> databaseHealthSupplier, TopologyService topologyService )
+            Monitors monitors, StoreCopyProcess storeCopyProcess, Supplier<DatabaseHealth> databaseHealthSupplier, TopologyService topologyService,
+            Supplier<IdentityMetaData> addressProvider )
 
     {
         this.localDatabase = localDatabase;
@@ -120,6 +122,7 @@ public class CatchupPollingProcess extends LifecycleAdapter
         this.storeCopyProcess = storeCopyProcess;
         this.databaseHealthSupplier = databaseHealthSupplier;
         this.topologyService = topologyService;
+        this.addressProvider = addressProvider;
     }
 
     @Override
@@ -332,10 +335,9 @@ public class CatchupPollingProcess extends LifecycleAdapter
 
         try
         {
-            AdvertisedSocketAddress fromAddress = topologyService.findCatchupAddress( upstream ).orElseThrow( () -> new TopologyLookupException( upstream ) );
-            storeCopyProcess.replaceWithStoreFrom( CatchupAddressProvider.fromSingleAddress( fromAddress ), localStoreId );
+            storeCopyProcess.replaceWithStoreFrom( addressProvider, localStoreId );
         }
-        catch ( IOException | StoreCopyFailedException | StreamingTransactionsFailedException | TopologyLookupException e )
+        catch ( IOException | StoreCopyFailedException | StreamingTransactionsFailedException e )
         {
             log.warn( format( "Error copying store from: %s. Will retry shortly.", upstream ) );
             return;
