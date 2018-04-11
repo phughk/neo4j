@@ -137,7 +137,7 @@ public class CausalClusteringBackupStrategyTest
                 state = subject.performIncrementalBackup( desiredBackupLocation, config, userProvidedAddress );
 
         // then
-        assertEquals( BackupStageOutcome.WRONG_PROTOCOL, state.getState() );
+        assertEquals( BackupStageOutcomeState.WRONG_PROTOCOL, state.getState().getState() );
         assertEquals( storeIdDownloadFailedException, state.getCause().get() );
     }
 
@@ -153,7 +153,7 @@ public class CausalClusteringBackupStrategyTest
         Fallible state = subject.performIncrementalBackup( desiredBackupLocation, config, userProvidedAddress );
 
         // then
-        assertEquals( BackupStageOutcome.FAILURE, state.getState() );
+        assertEquals( BackupStageOutcomeState.FAILURE, state.getState() );
         assertEquals( StoreCopyFailedException.class, state.getCause().get().getClass() );
     }
 
@@ -168,7 +168,7 @@ public class CausalClusteringBackupStrategyTest
         Fallible state = subject.performFullBackup( desiredBackupLocation, config, userProvidedAddress );
 
         // then
-        assertEquals( BackupStageOutcome.WRONG_PROTOCOL, state.getState() );
+        assertEquals( BackupStageOutcomeState.WRONG_PROTOCOL, state.getState() );
         assertEquals( storeIdDownloadFailedException, state.getCause().get() );
     }
 
@@ -182,7 +182,7 @@ public class CausalClusteringBackupStrategyTest
         Fallible state = subject.performFullBackup( desiredBackupLocation, config, userProvidedAddress );
 
         // then
-        assertEquals( BackupStageOutcome.FAILURE, state.getState() );
+        assertEquals( BackupStageOutcomeState.FAILURE, state.getState() );
         assertEquals( StoreCopyFailedException.class, state.getCause().get().getClass() );
     }
 
@@ -197,7 +197,7 @@ public class CausalClusteringBackupStrategyTest
                 state = subject.performIncrementalBackup( desiredBackupLocation, config, userProvidedAddress );
 
         // then
-        assertEquals( BackupStageOutcome.FAILURE, state.getState() );
+        assertEquals( BackupStageOutcomeState.FAILURE, state.getState().getState() );
         assertEquals( StoreCopyFailedException.class, state.getCause().get().getClass() );
         assertEquals( "End state of catchup was not a successful end of stream", state.getCause().get().getMessage() );
     }

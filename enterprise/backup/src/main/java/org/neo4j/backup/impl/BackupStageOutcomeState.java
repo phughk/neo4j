@@ -19,27 +19,10 @@
  */
 package org.neo4j.backup.impl;
 
-import java.io.File;
-import java.nio.file.Path;
-
-public class BackupStageOutcome
+enum BackupStageOutcomeState
 {
-    private final BackupStageOutcomeState state;
-    private final Path actualBackupTarget;
-
-    public BackupStageOutcome( BackupStageOutcomeState state, Path actualBackupTarget )
-    {
-        this.state = state;
-        this.actualBackupTarget = actualBackupTarget;
-    }
-
-    public BackupStageOutcomeState getState()
-    {
-        return state;
-    }
-
-    public Path getActualBackupTarget()
-    {
-        return actualBackupTarget;
-    }
+    SUCCESS,
+    WRONG_PROTOCOL,
+    FAILURE,
+    UNRECOVERABLE_FAILURE
 }

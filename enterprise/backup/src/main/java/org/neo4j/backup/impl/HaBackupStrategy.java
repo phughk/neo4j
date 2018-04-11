@@ -56,15 +56,15 @@ class HaBackupStrategy extends LifecycleAdapter implements BackupStrategy
             int port = resolvedAddress.getPort();
             backupProtocolService.doIncrementalBackup(
                     host, port, backupDestination, ConsistencyCheck.NONE, timeout, config );
-            return new Fallible<>( BackupStageOutcome.SUCCESS, null );
+            return new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.SUCCESS, backupDestination ), null );
         }
         catch ( MismatchingStoreIdException e )
         {
-            return new Fallible<>( BackupStageOutcome.UNRECOVERABLE_FAILURE, e );
+            return new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.UNRECOVERABLE_FAILURE, backupDestination ), e );
         }
         catch ( RuntimeException e )
         {
-            return new Fallible<>( BackupStageOutcome.FAILURE, e );
+            return new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.FAILURE, backupDestination ), e );
         }
     }
 
@@ -82,11 +82,11 @@ class HaBackupStrategy extends LifecycleAdapter implements BackupStrategy
             int port = fromAddress.getPort();
             backupProtocolService.doFullBackup(
                     host, port, desiredBackupLocation, consistencyCheck, config, timeout, forensics );
-            return new Fallible<>( BackupStageOutcome.SUCCESS, null );
+            return new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.SUCCESS, desiredBackupLocation ), null );
         }
         catch ( ComException e )
         {
-            return new Fallible<>( BackupStageOutcome.WRONG_PROTOCOL, e );
+            return new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.WRONG_PROTOCOL, desiredBackupLocation ), e );
         }
     }
 }

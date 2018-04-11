@@ -40,7 +40,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.neo4j.backup.impl.BackupStageOutcome.SUCCESS;
+import static org.neo4j.backup.impl.BackupStageOutcomeState.SUCCESS;
 
 public class BackupProtocolServiceStrategyTest
 {
@@ -68,13 +68,12 @@ public class BackupProtocolServiceStrategyTest
     public void incrementalBackupsAreDoneAgainstResolvedAddress()
     {
         // when
-        Fallible<BackupStageOutcome> state = subject.performIncrementalBackup(
-                backupDirectory, config, userSpecifiedHostname );
+        Fallible<BackupStageOutcome> state = subject.performIncrementalBackup( backupDirectory, config, userSpecifiedHostname );
 
         // then
         verify( backupProtocolService ).doIncrementalBackup( eq( hostnamePort.getHost() ),
                 eq( hostnamePort.getPort() ), any(), eq( ConsistencyCheck.NONE ), anyLong(), any() );
-        assertEquals( SUCCESS, state.getState() );
+        assertEquals( SUCCESS, state.getState().getState() );
     }
 
     @Test
@@ -90,7 +89,7 @@ public class BackupProtocolServiceStrategyTest
         Fallible state = subject.performIncrementalBackup( backupDirectory, config, userSpecifiedHostname );
 
         // then
-        assertEquals( BackupStageOutcome.FAILURE, state.getState() );
+        assertEquals( BackupStageOutcomeState.FAILURE, state.getState() );
         assertEquals( expectedException, state.getCause().get() );
     }
 
@@ -102,7 +101,7 @@ public class BackupProtocolServiceStrategyTest
 
         // then
         verify( backupProtocolService ).doFullBackup( any(), anyInt(), any(), eq( ConsistencyCheck.NONE ), any(), anyLong(), anyBoolean() );
-        assertEquals( BackupStageOutcome.SUCCESS, state.getState() );
+        assertEquals( BackupStageOutcomeState.SUCCESS, state.getState() );
     }
 
     @Test
@@ -116,7 +115,7 @@ public class BackupProtocolServiceStrategyTest
         Fallible state = subject.performFullBackup( backupDirectory, config, userSpecifiedHostname );
 
         // then
-        assertEquals( BackupStageOutcome.WRONG_PROTOCOL, state.getState() );
+        assertEquals( BackupStageOutcomeState.WRONG_PROTOCOL, state.getState() );
         assertEquals( ComException.class, state.getCause().get().getClass() );
     }
 }

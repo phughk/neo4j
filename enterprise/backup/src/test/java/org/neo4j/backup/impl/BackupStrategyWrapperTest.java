@@ -27,7 +27,6 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import org.neo4j.commandline.admin.OutsideWorld;
 import org.neo4j.consistency.checking.full.ConsistencyFlags;
@@ -69,8 +68,8 @@ public class BackupStrategyWrapperTest
     private OnlineBackupRequiredArguments requiredArguments;
     private Config config = mock( Config.class );
     private OptionalHostnamePort userProvidedAddress = new OptionalHostnamePort( (String) null, null, null );
-    private Fallible<BackupStageOutcome> SUCCESS = new Fallible<>( BackupStageOutcome.SUCCESS, null );
-    private Fallible<BackupStageOutcome> FAILURE = new Fallible<>( BackupStageOutcome.FAILURE, null );
+    private Fallible<BackupStageOutcome> SUCCESS = new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.SUCCESS, null ), null );
+    private Fallible<BackupStageOutcome> FAILURE = new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.FAILURE, null ), null );
     private PageCache pageCache = mock( PageCache.class );
     private BackupRecoveryService backupRecoveryService = mock( BackupRecoveryService.class );
     private LogProvider logProvider = mock( LogProvider.class );
@@ -172,7 +171,7 @@ public class BackupStrategyWrapperTest
 
         // and incremental fails
         when( backupStrategyImplementation.performIncrementalBackup( any(), any(), any() ) ).thenReturn(
-                new Fallible<>( BackupStageOutcome.FAILURE, null ) );
+                new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.FAILURE, null ), null ) );
 
         // when
         subject.doBackup( onlineBackupContext );
@@ -187,7 +186,7 @@ public class BackupStrategyWrapperTest
         // given
         when( backupCopyService.backupExists( any() ) ).thenReturn( true );
         when( backupStrategyImplementation.performIncrementalBackup( any(), any(), any() ) ).thenReturn(
-                new Fallible<>( BackupStageOutcome.FAILURE, null ) );
+                new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.FAILURE, null ), null ) );
 
         // and
         requiredArguments = requiredArguments( false );
@@ -212,11 +211,11 @@ public class BackupStrategyWrapperTest
 
         // and an incremental backup fails
         when( backupStrategyImplementation.performIncrementalBackup( any(), any(), any() ) ).thenReturn(
-                new Fallible<>( BackupStageOutcome.FAILURE, null ) );
+                new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.FAILURE, null ), null ) );
 
         // and full backup fails
         when( backupStrategyImplementation.performFullBackup( any(), any(), any() ) ).thenReturn(
-                new Fallible<>( BackupStageOutcome.FAILURE, null ) );
+                new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.FAILURE, null ), null ) );
 
         // when backup is performed
         subject.doBackup( onlineBackupContext );
@@ -249,11 +248,11 @@ public class BackupStrategyWrapperTest
 
         // and incremental fails
         when( backupStrategyImplementation.performIncrementalBackup( any(), any(), any() ) ).thenReturn(
-                new Fallible<>( BackupStageOutcome.FAILURE, null ) );
+                new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.FAILURE, null ), null ) );
 
         // and full passes
         when( backupStrategyImplementation.performFullBackup( any(), any(), any() ) ).thenReturn(
-                new Fallible<>( BackupStageOutcome.SUCCESS, null ) );
+                new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.SUCCESS, null ), null ) );
 
         // when
         Fallible<BackupStrategyOutcome> state = subject.doBackup( onlineBackupContext );
@@ -283,11 +282,11 @@ public class BackupStrategyWrapperTest
 
         // and incremental fails
         when( backupStrategyImplementation.performIncrementalBackup( any(), any(), any() ) ).thenReturn(
-                new Fallible<>( BackupStageOutcome.FAILURE, null ) );
+                new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.FAILURE, null ), null ) );
 
         // and full passes
         when( backupStrategyImplementation.performFullBackup( any(), any(), any() ) ).thenReturn(
-                new Fallible<>( BackupStageOutcome.SUCCESS, null ) );
+                new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.SUCCESS, null ), null ) );
 
         // when
         Fallible<BackupStrategyOutcome> state = subject.doBackup( onlineBackupContext );
@@ -493,11 +492,11 @@ public class BackupStrategyWrapperTest
         if ( isSuccessful )
         {
             when( backupStrategyImplementation.performIncrementalBackup( any(), any(), any() ) ).thenReturn(
-                    new Fallible<>( BackupStageOutcome.SUCCESS, null ) );
+                    new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.SUCCESS, null ), null ) );
             return;
         }
         when( backupStrategyImplementation.performIncrementalBackup( any(), any(), any() ) ).thenReturn(
-                new Fallible<>( BackupStageOutcome.FAILURE, null ) );
+                new Fallible<>( new BackupStageOutcome( BackupStageOutcomeState.FAILURE, null ), null ) );
     }
 
     private void bothBackupsFail()

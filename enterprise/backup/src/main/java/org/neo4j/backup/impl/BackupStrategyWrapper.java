@@ -86,13 +86,14 @@ class BackupStrategyWrapper
             log.info( "Previous backup found, trying incremental backup." );
             Fallible<BackupStageOutcome> state =
                     backupStrategy.performIncrementalBackup( userSpecifiedBackupLocation, config, userSpecifiedAddress );
-            boolean fullBackupWontWork = BackupStageOutcome.WRONG_PROTOCOL.equals( state.getState() );
-            boolean incrementalWasSuccessful = BackupStageOutcome.SUCCESS.equals( state.getState() );
+            boolean fullBackupWontWork = BackupStageOutcomeState.WRONG_PROTOCOL.equals( state.getState() );
+            boolean incrementalWasSuccessful = BackupStageOutcomeState.SUCCESS.equals( state.getState() );
 
             if ( fullBackupWontWork || incrementalWasSuccessful )
             {
                 clearIdFiles( backupLocation );
-                return describeOutcome( state );
+                return describeOutcome(
+                        new Fallible<>( new BackupStageOutcome( state.getState().getState(), backupLocation ), state.getCause().orElse( null ) ) );
             }
             if ( !onlineBackupContext.getRequiredArguments().isFallbackToFull() )
             {
@@ -105,7 +106,10 @@ class BackupStrategyWrapper
             {
                 log.info( "Previous backup not found, a new full backup will be performed." );
             }
-            return describeOutcome( fullBackupWithTemporaryFolderResolutions( onlineBackupContext ) );
+            Fallible<BackupStageOutcomeState> stageOutcome = fullBackupWithTemporaryFolderResolutions( onlineBackupContext );
+            return describeOutcome(
+                    new Fallible<>( new BackupStageOutcome( stageOutcome.getState(), backupLocation ), stageOutcome.getCause().orElse( null ) ) );
+            // TODO change with location
         }
         return new Fallible<>( BackupStrategyOutcome.INCORRECT_STRATEGY, null );
     }
@@ -133,7 +137,7 @@ class BackupStrategyWrapper
      * @param onlineBackupContext command line arguments, config etc.
      * @return outcome of full backup
      */
-    private Fallible<BackupStageOutcome> fullBackupWithTemporaryFolderResolutions(
+    private Fallible<BackupStageOutcomeState> fullBackupWithTemporaryFolderResolutions(
             OnlineBackupContext onlineBackupContext )
     {
         Path userSpecifiedBackupLocation = onlineBackupContext.getResolvedLocationFromName();
@@ -145,7 +149,7 @@ class BackupStrategyWrapper
         // NOTE temporaryFullBackupLocation can be equal to desired
         boolean aBackupAlreadyExisted = userSpecifiedBackupLocation.equals( temporaryFullBackupLocation );
 
-        if ( BackupStageOutcome.SUCCESS.equals( state.getState() ) )
+        if ( BackupStageOutcomeState.SUCCESS.equals( state.getState() ) )
         {
             backupRecoveryService.recoverWithDatabase( temporaryFullBackupLocation, pageCache, config );
             if ( !aBackupAlreadyExisted )
@@ -156,12 +160,12 @@ class BackupStrategyWrapper
                 }
                 catch ( IOException e )
                 {
-                    return new Fallible<>( BackupStageOutcome.UNRECOVERABLE_FAILURE, e );
+                    return new Fallible<>( BackupStageOutcomeState.UNRECOVERABLE_FAILURE, e );
                 }
             }
             clearIdFiles( userSpecifiedBackupLocation );
         }
-        return state;
+        return new Fallible<>( state.getState().getState(), state.getCause().orElse( null ) );
     }
 
     private void renameTemporaryBackupToExpected( Path temporaryFullBackupLocation, Path userSpecifiedBackupLocation ) throws IOException
@@ -173,20 +177,20 @@ class BackupStrategyWrapper
 
     private Fallible<BackupStrategyOutcome> describeOutcome( Fallible<BackupStageOutcome> strategyStageOutcome )
     {
-        BackupStageOutcome stageOutcome = strategyStageOutcome.getState();
-        if ( stageOutcome == BackupStageOutcome.SUCCESS )
+        BackupStageOutcomeState stageOutcome = strategyStageOutcome.getState().getState();
+        if ( stageOutcome == BackupStageOutcomeState.SUCCESS )
         {
             return new Fallible<>( BackupStrategyOutcome.SUCCESS, null );
         }
-        if ( stageOutcome == BackupStageOutcome.WRONG_PROTOCOL )
+        if ( stageOutcome == BackupStageOutcomeState.WRONG_PROTOCOL )
         {
             return new Fallible<>( BackupStrategyOutcome.INCORRECT_STRATEGY, strategyStageOutcome.getCause().orElse( null ) );
         }
-        if ( stageOutcome == BackupStageOutcome.FAILURE )
+        if ( stageOutcome == BackupStageOutcomeState.FAILURE )
         {
             return new Fallible<>( BackupStrategyOutcome.CORRECT_STRATEGY_FAILED, strategyStageOutcome.getCause().orElse( null ) );
         }
-        if ( stageOutcome == BackupStageOutcome.UNRECOVERABLE_FAILURE )
+        if ( stageOutcome == BackupStageOutcomeState.UNRECOVERABLE_FAILURE )
         {
             return new Fallible<>( BackupStrategyOutcome.ABSOLUTE_FAILURE, strategyStageOutcome.getCause().orElse( null ) );
         }

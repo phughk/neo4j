@@ -71,7 +71,8 @@ public class EmbeddedDatabaseRule extends DatabaseRule
     @Override
     protected GraphDatabaseBuilder newBuilder( GraphDatabaseFactory factory )
     {
-        return factory.newEmbeddedDatabaseBuilder( testDirectory.graphDbDir() );
+        int random = (int) (Math.random() * 1024);
+        return factory.newEmbeddedDatabaseBuilder( testDirectory.directory("graph-db-"+random) );
     }
 
     @Override
