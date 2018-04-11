@@ -39,6 +39,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.neo4j.commandline.admin.CommandFailed;
+import org.neo4j.commandline.admin.IncorrectUsage;
 import org.neo4j.graphdb.DatabaseShutdownException;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
@@ -63,6 +65,7 @@ import org.neo4j.test.rule.TestDirectory;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
@@ -76,9 +79,10 @@ public class OnlineBackupCommandHaIT
     public static final TestDirectory testDirectory = TestDirectory.testDirectory();
 
     private final EmbeddedDatabaseRule db = new EmbeddedDatabaseRule().startLazily();
+    private final EmbeddedDatabaseRule db2 = new EmbeddedDatabaseRule().startLazily();
 
     @Rule
-    public final RuleChain ruleChain = RuleChain.outerRule( SuppressOutput.suppressAll() ).around( db );
+    public final RuleChain ruleChain = RuleChain.outerRule( SuppressOutput.suppressAll() ).around( db ).around( db2 );
 
     private final File backupDir = testDirectory.directory( "backups" );
 
@@ -88,7 +92,7 @@ public class OnlineBackupCommandHaIT
     @Parameters( name = "{0}" )
     public static List<String> recordFormats()
     {
-        return Arrays.asList( Standard.LATEST_NAME, HighLimit.NAME );
+        return Arrays.asList( /*Standard.LATEST_NAME,*/ HighLimit.NAME );
     }
 
     private List<Runnable> oneOffShutdownTasks;
@@ -237,6 +241,43 @@ public class OnlineBackupCommandHaIT
         assertFalse( byteArrayOutputStream.toString().toLowerCase().contains( "exception" ) );
     }
 
+    @Test
+    public void backupRenamesWork() throws Exception
+    {
+        // given a prexisting backup from a different store
+        String backupName = "preexistingBackup_" + recordFormat;
+        int firstBackupPort = PortAuthority.allocatePort();
+        startDb( firstBackupPort );
+
+        assertEquals( 0, runSameJvm( backupDir, backupName,
+                "--from", "127.0.0.1:" + firstBackupPort,
+                "--cc-report-dir=" + backupDir,
+                "--backup-dir=" + backupDir,
+                "--name=" + backupName ) );
+        DbRepresentation firstDatabaseRepresentation = getDbRepresentation();
+
+        // and a different database
+        int secondBackupPort = PortAuthority.allocatePort();
+        startDb( db2, secondBackupPort );
+        DbRepresentation secondDatabaseRepresentation = getDbRepresentation();
+
+        // when backup is performed
+        assertEquals( 0, runSameJvm(backupDir, backupName,
+                "--from", "127.0.0.1:" + secondBackupPort,
+                "--cc-report-dir=" + backupDir,
+                "--backup-dir=" + backupDir,
+                "--name=" + backupName ) );
+
+        // then the new backup has the correct name
+        assertEquals( secondDatabaseRepresentation, getBackupDbRepresentation( backupName ) );
+
+        // and the old backup is in a renamed location
+        assertEquals( firstDatabaseRepresentation, getBackupDbRepresentation( backupName + ".err.0" ) );
+
+        // and the data isn't equal (sanity check)
+        assertNotEquals( firstDatabaseRepresentation, secondDatabaseRepresentation );
+    }
+
     private void repeatedlyPopulateDatabase( GraphDatabaseService db, AtomicBoolean continueFlagReference )
     {
         while ( continueFlagReference.get() )
@@ -263,6 +304,11 @@ public class OnlineBackupCommandHaIT
 
     private void startDb( Integer backupPort )
     {
+        startDb( db, backupPort );
+    }
+
+    private void startDb( EmbeddedDatabaseRule db, Integer backupPort )
+    {
         db.setConfig( GraphDatabaseSettings.record_format, recordFormat );
         db.setConfig( OnlineBackupSettings.online_backup_enabled, Settings.TRUE );
         db.setConfig( OnlineBackupSettings.online_backup_server, "127.0.0.1" + ":" + backupPort );
@@ -279,6 +325,20 @@ public class OnlineBackupCommandHaIT
             throws Exception
     {
         return runBackupToolFromOtherJvmToGetExitCode( testDirectory.absolutePath(), args );
+    }
+
+    private static int runSameJvm( File home, String name, String... args )
+    {
+        try
+        {
+            new OnlineBackupCommandBuilder().withRawArgs( args ).backup( home, name );
+            return 0;
+        }
+        catch ( Exception e )
+        {
+            e.printStackTrace();
+            return 1;
+        }
     }
 
     private DbRepresentation getDbRepresentation()

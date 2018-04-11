@@ -66,13 +66,12 @@ class BackupStrategyWrapper
         LifeSupport lifeSupport = new LifeSupport();
         lifeSupport.add( backupStrategy );
         lifeSupport.start();
-        Fallible<BackupStrategyOutcome> state = performBackupWithoutLifecycle( onlineBackupContext );
+        Fallible<BackupStrategyOutcome> state = performBackupWithoutLifecycle( lifeSupport, onlineBackupContext );
         lifeSupport.shutdown();
         return state;
     }
 
-    private Fallible<BackupStrategyOutcome> performBackupWithoutLifecycle(
-            OnlineBackupContext onlineBackupContext )
+    private Fallible<BackupStrategyOutcome> performBackupWithoutLifecycle( LifeSupport lifeSupport, OnlineBackupContext onlineBackupContext )
     {
         Path backupLocation = onlineBackupContext.getResolvedLocationFromName();
         Path userSpecifiedBackupLocation = onlineBackupContext.getResolvedLocationFromName();
@@ -105,7 +104,7 @@ class BackupStrategyWrapper
             {
                 log.info( "Previous backup not found, a new full backup will be performed." );
             }
-            return describeOutcome( fullBackupWithTemporaryFolderResolutions( onlineBackupContext ) );
+            return describeOutcome( fullBackupWithTemporaryFolderResolutions( lifeSupport, onlineBackupContext ) );
         }
         return new Fallible<>( BackupStrategyOutcome.INCORRECT_STRATEGY, null );
     }
@@ -130,11 +129,12 @@ class BackupStrategyWrapper
      * will occur if everything was successful.
      * </p>
      *
+     *
+     * @param lifeSupport
      * @param onlineBackupContext command line arguments, config etc.
      * @return outcome of full backup
      */
-    private Fallible<BackupStageOutcome> fullBackupWithTemporaryFolderResolutions(
-            OnlineBackupContext onlineBackupContext )
+    private Fallible<BackupStageOutcome> fullBackupWithTemporaryFolderResolutions( LifeSupport lifeSupport, OnlineBackupContext onlineBackupContext )
     {
         Path userSpecifiedBackupLocation = onlineBackupContext.getResolvedLocationFromName();
         Path temporaryFullBackupLocation = backupCopyService.findAnAvailableLocationForNewFullBackup( userSpecifiedBackupLocation );
@@ -143,12 +143,13 @@ class BackupStrategyWrapper
         Fallible<BackupStageOutcome> state = backupStrategy.performFullBackup( temporaryFullBackupLocation, config, address );
 
         // NOTE temporaryFullBackupLocation can be equal to desired
-        boolean aBackupAlreadyExisted = userSpecifiedBackupLocation.equals( temporaryFullBackupLocation );
+        boolean backupWasMadeToATemporaryLocation = !userSpecifiedBackupLocation.equals( temporaryFullBackupLocation );
 
         if ( BackupStageOutcome.SUCCESS.equals( state.getState() ) )
         {
             backupRecoveryService.recoverWithDatabase( temporaryFullBackupLocation, pageCache, config );
-            if ( !aBackupAlreadyExisted )
+            lifeSupport.shutdown();
+            if ( backupWasMadeToATemporaryLocation )
             {
                 try
                 {

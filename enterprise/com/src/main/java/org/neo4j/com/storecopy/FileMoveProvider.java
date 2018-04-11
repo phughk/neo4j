@@ -172,8 +172,10 @@ public class FileMoveProvider
     {
         if ( fileMoveActionInformer.shouldBeManagedByPageCache( fileToMove.getName() ) )
         {
+            System.out.printf( "Copying " + fileToMove + " via pagecache\n" );
             return FileMoveAction.copyViaPageCache( fileToMove, pageCache );
         }
+        System.out.printf( "Copying " + fileToMove + " via dir\n" );
         return FileMoveAction.copyViaFileSystem( fileToMove, basePath );
     }
 }
