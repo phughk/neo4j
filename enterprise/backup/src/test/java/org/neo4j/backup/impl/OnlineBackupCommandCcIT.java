@@ -75,8 +75,13 @@ public class OnlineBackupCommandCcIT
             .withNumberOfReadReplicas( 3 )
             .withSharedCoreParam( CausalClusteringSettings.cluster_topology_refresh, "5s" );
 
+    @Rule ClusterRule clusterRule2 = new ClusterRule()
+            .withNumberOfCoreMembers( 2 )
+            .withNumberOfReadReplicas( 0 )
+            .withSharedCoreParam( CausalClusteringSettings.cluster_topology_refresh, "5s" );
+
     @Rule
-    public final RuleChain ruleChain = RuleChain.outerRule( SuppressOutput.suppressAll() ).around( clusterRule );
+    public final RuleChain ruleChain = RuleChain.outerRule( SuppressOutput.suppressAll() ).around( clusterRule ).around( clusterRule2 );
 
     private File backupDir;
 
@@ -235,6 +240,43 @@ public class OnlineBackupCommandCcIT
         // then
         assertFalse( byteArrayErrorStream.toString().toLowerCase().contains( "exception" ) );
         assertFalse( byteArrayOutputStream.toString().toLowerCase().contains( "exception" ) );
+    }
+
+    @Test
+    public void backupRenamesWork() throws Exception
+    {
+        // given a prexisting backup from a different store
+        String backupName = "preexistingBackup_" + recordFormat;
+        Cluster cluster = startCluster( recordFormat );
+        String firstBackupAddress = CausalClusteringTestHelpers.transactionAddress( clusterLeader( cluster ).database() );
+
+        assertEquals( 0, runBackupToolFromOtherJvmToGetExitCode(
+                "--from", "127.0.0.1:" + firstBackupAddress,
+                "--cc-report-dir=" + backupDir,
+                "--backup-dir=" + backupDir,
+                "--name=" + backupName ) );
+        DbRepresentation firstDatabaseRepresentation = etDbRepresentation();
+
+        // and a different database
+        int secondBackupPort = PortAuthority.allocatePort();
+        startDb( db2, secondBackupPort );
+        DbRepresentation secondDatabaseRepresentation = getDbRepresentation();
+
+        // when backup is performed
+        assertEquals( 0, runSameJvm(backupDir, backupName,
+                "--from", "127.0.0.1:" + secondBackupPort,
+                "--cc-report-dir=" + backupDir,
+                "--backup-dir=" + backupDir,
+                "--name=" + backupName ) );
+
+        // then the new backup has the correct name
+        assertEquals( secondDatabaseRepresentation, getBackupDbRepresentation( backupName ) );
+
+        // and the old backup is in a renamed location
+        assertEquals( firstDatabaseRepresentation, getBackupDbRepresentation( backupName + ".err.0" ) );
+
+        // and the data isn't equal (sanity check)
+        assertNotEquals( firstDatabaseRepresentation, secondDatabaseRepresentation );
     }
 
     static PrintStream wrapWithNormalOutput( PrintStream normalOutput, PrintStream nullAbleOutput )
