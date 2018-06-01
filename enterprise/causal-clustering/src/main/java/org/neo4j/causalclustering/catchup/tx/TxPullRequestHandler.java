@@ -152,7 +152,7 @@ public class TxPullRequestHandler extends SimpleChannelInboundHandler<TxPullRequ
     private void endInteraction( ChannelHandlerContext ctx, CatchupResult status, long lastCommittedTransactionId )
     {
         ctx.write( ResponseMessageType.TX_STREAM_FINISHED );
-        ctx.writeAndFlush( new TxStreamFinishedResponse( status, lastCommittedTransactionId ) );
+        ctx.writeAndFlush( new TxStreamFinishedResponse( status, lastCommittedTransactionId ) ); // TODO here
         protocol.expect( State.MESSAGE_TYPE );
     }
 }

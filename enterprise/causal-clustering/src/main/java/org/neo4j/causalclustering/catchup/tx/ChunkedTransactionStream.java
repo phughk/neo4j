@@ -118,12 +118,12 @@ public class ChunkedTransactionStream implements ChunkedInput<Object>
             noMoreTransactions = true;
             protocol.expect( CatchupServerProtocol.State.MESSAGE_TYPE );
 
-            pending = new TxStreamFinishedResponse( SUCCESS_END_OF_STREAM, lastTxId );
+            pending = new TxStreamFinishedResponse( SUCCESS_END_OF_STREAM, lastTxId ); // TODO here
             return ResponseMessageType.TX_STREAM_FINISHED;
         }
     }
 
-    private Object consumePending()
+    private Object consumePending() // todo trace this
     {
         Object prevPending = pending;
         pending = null;
