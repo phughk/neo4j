@@ -30,9 +30,14 @@ import org.neo4j.logging.LogProvider;
 
 public class TopologyServiceMultiRetryStrategy extends MultiRetryStrategy<MemberId,Optional<AdvertisedSocketAddress>> implements TopologyServiceRetryStrategy
 {
+    private long delayInMillis;
+    private long retries;
+
     public TopologyServiceMultiRetryStrategy( long delayInMillis, long retries, LogProvider logProvider )
     {
         super( delayInMillis, retries, logProvider, TopologyServiceMultiRetryStrategy::sleep );
+        this.delayInMillis = delayInMillis;
+        this.retries = retries;
     }
 
     private static void sleep( long durationInMillis )
@@ -45,5 +50,11 @@ public class TopologyServiceMultiRetryStrategy extends MultiRetryStrategy<Member
         {
             throw new RuntimeException( e );
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.format( "%s(delay=%d, retries=%d)", this.getClass().getName(), delayInMillis, retries );
     }
 }

@@ -29,4 +29,9 @@ import org.neo4j.helpers.AdvertisedSocketAddress;
 
 public class TopologyServiceNoRetriesStrategy extends NoRetriesStrategy<MemberId,Optional<AdvertisedSocketAddress>> implements TopologyServiceRetryStrategy
 {
+    @Override
+    public String toString()
+    {
+        return String.format( this.getClass().getName() );
+    }
 }

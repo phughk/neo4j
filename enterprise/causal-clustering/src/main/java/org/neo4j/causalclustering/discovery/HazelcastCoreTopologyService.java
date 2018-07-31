@@ -110,6 +110,7 @@ class HazelcastCoreTopologyService extends LifecycleAdapter implements CoreTopol
         this.refreshPeriod = config.get( CausalClusteringSettings.cluster_topology_refresh ).toMillis();
         this.hostnameResolver = hostnameResolver;
         this.topologyServiceRetryStrategy = topologyServiceRetryStrategy;
+        log.debug( "TopologyServiceRetryStrategy is " + topologyServiceRetryStrategy );
     }
 
     @Override

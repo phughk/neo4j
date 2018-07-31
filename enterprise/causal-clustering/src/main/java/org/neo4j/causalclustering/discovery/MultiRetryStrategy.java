@@ -64,14 +64,18 @@ public class MultiRetryStrategy<INPUT, OUTPUT> implements RetryStrategy<INPUT,OU
     public OUTPUT apply( INPUT retriableInput, Function<INPUT,OUTPUT> retriable, Predicate<OUTPUT> wasRetrySuccessful )
     {
         Log log = logProvider.getLog( MultiRetryStrategy.class );
+        log.debug( "Getting result" );
         OUTPUT result = retriable.apply( retriableInput );
+        log.debug( "Result was " + result );
         int currentIteration = 0;
         while ( !wasRetrySuccessful.test( result ) && currentIteration++ < retries )
         {
             log.debug( "Try attempt was unsuccessful for input: %s\n", retriableInput );
             sleeper.accept( delayInMillis );
             result = retriable.apply( retriableInput );
+            log.debug( "Retry result was " + result );
         }
+        log.debug( "Returning result " + result );
         return result;
     }
 }

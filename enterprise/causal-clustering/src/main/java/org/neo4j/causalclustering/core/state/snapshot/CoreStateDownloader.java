@@ -91,18 +91,25 @@ public class CoreStateDownloader
              */
             if ( localDatabase.hasTxLogs() )
             {
+                log.debug( "Local database has transactions, starting localDb" );
                 localDatabase.start();
+                log.debug( "Stopping localDb" );
                 localDatabase.stop();
+                log.debug( "After stopping localDb" );
             }
-
+            log.debug( "Retrieving fromAddress" );
             AdvertisedSocketAddress fromAddress = topologyService.findCatchupAddress( source ).orElseThrow( () -> new TopologyLookupException( source ));
+            log.debug( "fromAddress is %s, retrieving remoteStore", fromAddress );
             StoreId remoteStoreId = remoteStore.getStoreId( fromAddress );
+            log.debug( "remoteStoreId is " + remoteStoreId );
             if ( !isEmptyStore && !remoteStoreId.equals( localDatabase.storeId() ) )
             {
                 throw new StoreCopyFailedException( "StoreId mismatch and not empty" );
             }
 
+            log.debug( "Stopping store copy service" );
             startStopOnStoreCopy.stop();
+            log.debug( "Stopping db for store copy" );
             localDatabase.stopForStoreCopy();
 
             log.info( "Downloading snapshot from core server at %s", source );
@@ -124,14 +131,18 @@ public class CoreStateDownloader
                         }
                     } );
 
+            log.debug( "Core snapshot downloaded" );
             if ( isEmptyStore )
             {
+                log.debug( "Store was empty, replacing" );
                 storeCopyProcess.replaceWithStoreFrom( fromAddress, remoteStoreId );
             }
             else
             {
+                log.debug( "Store not empty, catching up" );
                 StoreId localStoreId = localDatabase.storeId();
                 CatchupResult catchupResult = remoteStore.tryCatchingUp( fromAddress, localStoreId );
+                log.debug( "Caught up with store id = %s, result=%s", localStoreId, catchupResult );
 
                 if ( catchupResult == E_TRANSACTION_PRUNED )
                 {
